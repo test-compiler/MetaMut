@@ -1,0 +1,84 @@
+#include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/AST/Stmt.h>
+#include <clang/Basic/SourceManager.h>
+#include <clang/Sema/Sema.h>
+
+#include "MutatorManager.h"
+#include "Stmt/SwitchToGoto.h"
+
+using namespace clang;
+using namespace ysmut;
+
+static RegisterMutator<SwitchToGoto> M(
+    "switch-to-goto", "Convert a switch statement to goto statements.");
+
+bool SwitchToGoto::VisitSwitchStmt(SwitchStmt *SS) {
+  if (isMutationSite(SS)) TheSwitches.push_back(SS);
+  return true;
+}
+
+std::string SwitchToGoto::getSourceTextRemovingBreak(
+    clang::Stmt *stmt, const std::string &endLabel) {
+  std::string stmtText = getSourceText(stmt).str();
+
+  // Replace "break;" with "goto end_label;"
+  size_t index = 0;
+  std::string searchStr = "break";
+  std::string replaceStr = "goto " + endLabel;
+  while (true) {
+    /* Locate the substring to replace. */
+    index = stmtText.find(searchStr, index);
+    if (index == std::string::npos) break;
+
+    /* Make the replacement. */
+    stmtText.replace(index, searchStr.size(), replaceStr);
+
+    /* Advance index forward so the next iteration doesn't pick it up as well.
+     */
+    index += replaceStr.size();
+  }
+
+  return stmtText;
+}
+
+bool SwitchToGoto::mutate() {
+  TraverseAST(getASTContext());
+  if (TheSwitches.empty()) return false;
+
+  SwitchStmt *switchStmt = randElement(TheSwitches);
+
+  std::string gotoText;
+  std::string endLabel = generateUniqueName("end_label");
+
+  for (SwitchCase *SC = switchStmt->getSwitchCaseList(); SC;
+       SC = SC->getNextSwitchCase()) {
+    std::string caseLabel = generateUniqueName("case_label");
+
+    if (isa<CaseStmt>(SC)) {
+      gotoText += "if (";
+      gotoText += getSourceText(switchStmt->getCond()).str();
+      gotoText += " == ";
+      gotoText += getSourceText(cast<CaseStmt>(SC)->getLHS()).str();
+      gotoText += ") goto ";
+      gotoText += caseLabel;
+      gotoText += ";\n";
+    } else { // DefaultStmt
+      gotoText += "goto ";
+      gotoText += caseLabel;
+      gotoText += ";\n";
+    }
+
+    gotoText += caseLabel;
+    gotoText += ": \n";
+    gotoText +=
+        getSourceTextRemovingBreak(SC->getSubStmt(), endLabel);
+    gotoText += ";\n";
+  }
+
+  gotoText += endLabel;
+  gotoText += ": ;";
+
+  getRewriter().ReplaceText(switchStmt->getSourceRange(), gotoText);
+
+  return true;
+}
