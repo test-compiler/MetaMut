@@ -3,6 +3,7 @@ import sys
 import json
 import random
 import pathlib
+from .Exceptions import NetworkFailure
 
 def parse_log(filename):
   rounds = []
@@ -37,4 +38,7 @@ class Context:
     self.mg = mg
   def send(self, text):
     self.round_idx += 1
-    return self.rounds[self.round_idx * 2 - 1][1]
+    index = self.round_idx * 2 - 1
+    if index < len(self.rounds):
+      return self.rounds[index][1]
+    raise NetworkFailure()

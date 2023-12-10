@@ -1,3 +1,4 @@
+import re
 import time
 import tiktoken
 import openai
@@ -5,8 +6,18 @@ import traceback
 import random
 import configs
 
+def num_max_tokens(model):
+  r = re.search('(\d+)k', model, re.I)
+  if r: return int(r.group(1)) * 1024 + 1
+  if re.search('gpt-4', model, re.I):
+    return 8*1024 + 1
+  if re.search('gpt-3.5', model, re.I) or \
+     re.search('gpt-35', model, re.I):
+    return 4*1024 + 1
+  raise ValueError(f"invalid model {model}")
+
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
-  if model == "gpt-35-turbo-16k": model = "gpt-3.5-turbo-16k-0613"
+  model = model.replace('gpt-35', 'gpt-3.5')
   """Return the number of tokens used by a list of messages."""
   try:
     encoding = tiktoken.encoding_for_model(model)
@@ -26,10 +37,10 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
     tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
     tokens_per_name = -1  # if there's a name, the role is omitted
   elif "gpt-3.5-turbo" in model:
-    print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
+    # print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
     return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
   elif "gpt-4" in model:
-    print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
+    # print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
     return num_tokens_from_messages(messages, model="gpt-4-0613")
   else:
     raise NotImplementedError(
@@ -46,20 +57,20 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
   return num_tokens
 
 class Context:
-  def __init__(self):
-    self.system_prompt = {"role": "system", "content": "You are an AI programming assistant."}
+  def __init__(self, engine='gpt-4', top_p=0.95, temperature=1.0):
+    self.system_prompt = {"role": "system",
+        "content": "You are an AI programming assistant."}
     self.conversation = [ ]
-    # self.engine = "gpt-35-turbo-16k"
-    self.engine = "gpt-4"
-    self.top_p = 0.95
-    self.temperature = 1.0
+    self.engine = engine
+    self.top_p = top_p
+    self.temperature = temperature
     self.curr_completion = None
   def send(self, text):
     while True:
       try:
         return self.send_internal(text)
       except KeyboardInterrupt:
-        print("Interrupted by Ctrl+c. stopping the program...")
+        print("Interrupted by Ctrl+C. stopping the program...")
         raise
       except (openai.error.RateLimitError, openai.error.InvalidRequestError) as e:
         s = ''.join(traceback.format_exception(
@@ -76,8 +87,8 @@ class Context:
     while True:
       messages = [ self.system_prompt,
           *self.conversation, request ]
-      remain_tokens = 8193 - num_tokens_from_messages(
-          messages, self.engine)
+      remain_tokens = num_max_tokens(self.engine) - \
+          num_tokens_from_messages(messages, self.engine)
       if remain_tokens >= 1024: break
       # print(f'drop history {self.conversation[0]}')
       self.conversation.pop(0)

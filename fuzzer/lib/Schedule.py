@@ -29,3 +29,4 @@ class Scheduler:
       p.start()
       self.ps.append([affinity, p, job])
       psutil.Process(p.pid).cpu_affinity([affinity])
+    for p in self.ps: p.join()

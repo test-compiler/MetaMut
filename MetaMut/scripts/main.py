@@ -1,87 +1,44 @@
 import os
 import sys
 import time
+import openai
 import pathlib
-import datetime
-import traceback
-from AzureAPI import Context as AzureAPI
-from FakeAPI import Context as FakeAPI
-from MutGen import MutatorGenerator
-from MutGen import ExceedMaxQueryTimes
+import argparse
+from metamut.Driver import MetaMutDriver
+from llm.ReplayAPI import Context as ReplayAPI
 
-def check_logfile_exists(logfile):
-  if os.access(logfile, os.F_OK):
-    print(f'skipping {logfile}')
-    return True
-  return False
+def parse_args():
+  parser = argparse.ArgumentParser('MetaMut.driver')
+  parser.add_argument('--replay-logs',
+      dest='replay_logs', nargs='+',
+      help='Replay the generation process from the specified log files.')
+  parser.add_argument('--print-model-list',
+      dest='print_model_list', action='store_true',
+      help='Print a list of available models and exit.')
+  parser.add_argument('--invent-only',
+      dest='invent_only', action='store_true',
+      help='Invent new mutators without generating them.')
+  parser.add_argument('--num-mutators', dest='num_mutators',
+      type=int, default=100,
+      help='specify the number of mutators to be generated or invented (default: 100)')
+  return parser.parse_args()
 
-def create_api_and_mutator_generator(ApiCtor, logfile, existing_mutators):
-  api = ApiCtor()
-  mg = MutatorGenerator(api, logfile)
-  mg.eval_ctx['existing_mutators'].extend(existing_mutators)
-  return api, mg
+def main(args):
+  if args.print_model_list:
+    print(openai.Model.list())
+    sys.exit(0)
 
-def clean_workbench():
-  os.system(f"rm -rf lib/workbench/*")
-
-def run_mutator_generator(mg):
-  try:
-    impl = mg.run()
-  except KeyboardInterrupt as e:
-    raise
-  except Exception as e:
-    return e
-  return impl
-
-def write_to_file(impl):
-  filename = f"lib/mutators/{impl.name}.cpp"
-  print(f"saving {impl.name} to {filename}")
-  pathlib.Path(filename).write_text(impl.code)
-
-def handle_exception(e, logfile, existing_mutators):
-  if type(e) == ExceedMaxQueryTimes:
-    name = e.__dict__.get('name', None)
-    desc = e.__dict__.get('desc', None)
-    if name:
-      existing_mutators.append([name, str(desc)])
-
-  # dump exception
-  s  = f"======= {datetime.datetime.now()} =======\n"
-  s += ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-  with open(logfile, 'a+', errors='ignore') as fp:
-    fp.write(s)
-  print(s)
-
-def close_api(api):
-  if hasattr(api, 'close'):
-    api.close()
-
-def mainloop(ApiCtor, maxIter):
-  total = 0
-  existing_mutators = []
-  while total < maxIter:
-    logfile = f'logs/mutator-{total}.txt'
-    if check_logfile_exists(logfile):
-      total += 1
-      continue
-
-    api, mg = create_api_and_mutator_generator(ApiCtor, logfile, existing_mutators)
-    clean_workbench()
-
-    impl = run_mutator_generator(mg)
-    if isinstance(impl, Exception):
-      handle_exception(impl, logfile, existing_mutators)
+  driver = MetaMutDriver()
+  if args.invent_only:
+    if args.replay_logs:
+      for logfile in args.replay_logs:
+        driver.invent_mutators(n=1, api=ReplayAPI(logfile))
     else:
-      write_to_file(impl)
-
-    total += 1
-    close_api(api)
+      driver.invent_mutators(n=args.num_mutators)
+  elif args.replay_logs:
+    driver.replay_logs(args.replay_logs)
+  else:
+    driver.generate_mutators(n=args.num_mutators)
 
 if __name__ == "__main__":
-  os.system(f'mkdir -p logs output')
-  os.system(f'cd output; cmake ..; make -j8')
-  os.system(f'mkdir -p lib/workbench lib/mutators')
-  # fake_run()
-  # think_mutators()
-  # mainloop(lambda : FakeAPI('logs/mutator-1.txt'), 8)
-  mainloop(lambda:AzureAPI(), 200)
+  main(parse_args())
