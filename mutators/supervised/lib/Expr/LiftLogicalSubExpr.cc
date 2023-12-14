@@ -1,15 +1,29 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <string>
 
-#include "Expr/LiftLogicalSubExpr.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<LiftLogicalSubExpr> M(
-    "lift-logical-subexpr", "Lift a subexpression from a logical expression.");
+class LiftLogicalSubExpr
+    : public Mutator,
+      public clang::RecursiveASTVisitor<LiftLogicalSubExpr> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitBinaryOperator(clang::BinaryOperator *BO);
+
+private:
+  std::vector<clang::BinaryOperator *> BinaryOps;
+};
+
+static RegisterMutator<LiftLogicalSubExpr>
+    M("lift-logical-subexpr",
+      "Lift a subexpression from a logical expression.");
 
 bool LiftLogicalSubExpr::VisitBinaryOperator(BinaryOperator *BO) {
   if ((BO->getOpcode() == BO_LAnd || BO->getOpcode() == BO_LOr) &&
@@ -21,7 +35,8 @@ bool LiftLogicalSubExpr::VisitBinaryOperator(BinaryOperator *BO) {
 
 bool LiftLogicalSubExpr::mutate() {
   TraverseAST(getASTContext());
-  if (BinaryOps.empty()) return false;
+  if (BinaryOps.empty())
+    return false;
 
   BinaryOperator *op = randElement(BinaryOps);
   Expr *lhs = op->getLHS();
@@ -31,8 +46,8 @@ bool LiftLogicalSubExpr::mutate() {
   Expr *lifted = randBool() ? lhs : rhs;
 
   // Replace the entire logical expression with the lifted operand
-  getRewriter().ReplaceText(
-      getExpansionRange(op->getSourceRange()), getSourceText(lifted).str());
+  getRewriter().ReplaceText(getExpansionRange(op->getSourceRange()),
+                            getSourceText(lifted).str());
 
   return true;
 }

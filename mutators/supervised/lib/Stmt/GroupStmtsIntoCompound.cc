@@ -1,27 +1,44 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
+#include <string>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/GroupStmtsIntoCompound.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<GroupStmtsIntoCompound> M("group-stmts-into-compound",
-    "Group a list of continuous stmt into compound stmt.");
+class GroupStmtsIntoCompound
+    : public Mutator,
+      public clang::RecursiveASTVisitor<GroupStmtsIntoCompound> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitCompoundStmt(clang::CompoundStmt *CS);
+
+private:
+  std::vector<clang::CompoundStmt *> TheCompStmts;
+};
+
+static RegisterMutator<GroupStmtsIntoCompound>
+    M("group-stmts-into-compound",
+      "Group a list of continuous stmt into compound stmt.");
 
 bool GroupStmtsIntoCompound::VisitCompoundStmt(CompoundStmt *CS) {
-  if (isMutationSite(CS)) TheCompStmts.push_back(CS);
+  if (isMutationSite(CS))
+    TheCompStmts.push_back(CS);
   return true;
 }
 
 bool GroupStmtsIntoCompound::mutate() {
   TraverseAST(getASTContext());
-  if (TheCompStmts.empty()) return false;
+  if (TheCompStmts.empty())
+    return false;
 
   CompoundStmt *selectedCS = randElement(TheCompStmts);
 
-  if (selectedCS->size() <= 1) return false; // Need at least two stmts to group
+  if (selectedCS->size() <= 1)
+    return false; // Need at least two stmts to group
 
   // Randomly select a subrange of the body to group
   size_t startPos = randIndex(selectedCS->size());

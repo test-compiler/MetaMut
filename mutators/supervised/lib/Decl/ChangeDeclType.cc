@@ -2,18 +2,34 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <llvm/ADT/DenseSet.h>
+#include <string>
 
-#include "Decl/ChangeDeclType.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ChangeDeclType> M(
-    "change-decltype", "Change a VarDecl's type to a compliant one.");
+class ChangeDeclType : public Mutator,
+                       public clang::RecursiveASTVisitor<ChangeDeclType> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitDecl(clang::Decl *D);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  llvm::DenseSet<clang::QualType, llvm::DenseMapInfo<clang::QualType>> TheTypes;
+};
+
+static RegisterMutator<ChangeDeclType>
+    M("change-decltype", "Change a VarDecl's type to a compliant one.");
 
 bool ChangeDeclType::VisitVarDecl(VarDecl *VD) {
-  if (isMutationSite(VD)) TheVars.push_back(VD);
+  if (isMutationSite(VD))
+    TheVars.push_back(VD);
   return true;
 }
 
@@ -25,7 +41,8 @@ bool ChangeDeclType::VisitDecl(Decl *D) {
 
 bool ChangeDeclType::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   VarDecl *oldVar = randElement(TheVars);
   QualType oldType = oldVar->getType();
@@ -33,7 +50,8 @@ bool ChangeDeclType::mutate() {
   // Collect all compatible types
   std::vector<QualType> compatibleTypes;
   for (const auto &type : TheTypes) {
-    if (type == oldType) continue;
+    if (type == oldType)
+      continue;
     if (getCompilerInstance().getSema().CheckAssignmentConstraints(
             oldVar->getLocation(), type, oldType) ==
         Sema::AssignConvertType::Compatible) {
@@ -41,13 +59,16 @@ bool ChangeDeclType::mutate() {
     }
   }
 
-  if (compatibleTypes.empty()) return false; // no suitable replacement found
+  if (compatibleTypes.empty())
+    return false; // no suitable replacement found
 
   // Randomly select a new type
   QualType newType = randElement(compatibleTypes);
 
   // Replace the old type with the new one
-  getRewriter().ReplaceText(oldVar->getTypeSourceInfo()->getTypeLoc().getSourceRange(), newType.getAsString());
+  getRewriter().ReplaceText(
+      oldVar->getTypeSourceInfo()->getTypeLoc().getSourceRange(),
+      newType.getAsString());
 
   return true;
 }

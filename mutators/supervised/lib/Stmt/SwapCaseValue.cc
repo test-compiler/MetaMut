@@ -2,24 +2,38 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/SwapCaseValue.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<SwapCaseValue> M(
-    "swap-casevalue", "Swap two CaseStmt's values.");
+class SwapCaseValue : public Mutator,
+                      public clang::RecursiveASTVisitor<SwapCaseValue> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitSwitchStmt(clang::SwitchStmt *SS);
+
+private:
+  std::vector<clang::SwitchStmt *> TheSwitches;
+};
+
+static RegisterMutator<SwapCaseValue> M("swap-casevalue",
+                                        "Swap two CaseStmt's values.");
 
 bool SwapCaseValue::VisitSwitchStmt(SwitchStmt *SS) {
-  if (isMutationSite(SS)) TheSwitches.push_back(SS);
+  if (isMutationSite(SS))
+    TheSwitches.push_back(SS);
   return true;
 }
 
 bool SwapCaseValue::mutate() {
   TraverseAST(getASTContext());
-  if (TheSwitches.empty()) return false;
+  if (TheSwitches.empty())
+    return false;
 
   // Randomly select a SwitchStmt
   SwitchStmt *selectedSwitch = randElement(TheSwitches);
@@ -28,18 +42,22 @@ bool SwapCaseValue::mutate() {
   std::vector<CaseStmt *> caseStmts;
   for (SwitchCase *SC = selectedSwitch->getSwitchCaseList(); SC;
        SC = SC->getNextSwitchCase()) {
-    if (CaseStmt *CS = dyn_cast<CaseStmt>(SC)) caseStmts.push_back(CS);
+    if (CaseStmt *CS = dyn_cast<CaseStmt>(SC))
+      caseStmts.push_back(CS);
   }
 
   // Ensure there are at least two cases to swap
-  if (caseStmts.size() < 2) return false;
+  if (caseStmts.size() < 2)
+    return false;
 
   // Randomly select two CaseStmts
   CaseStmt *case1 = randElement(caseStmts);
   CaseStmt *case2 = randElement(caseStmts);
 
   // Ensure that the two cases are not the same
-  while (case1 == case2) { case2 = randElement(caseStmts); }
+  while (case1 == case2) {
+    case2 = randElement(caseStmts);
+  }
 
   // Get the original case values
   std::string val1 = getSourceText(case1->getLHS()).str();

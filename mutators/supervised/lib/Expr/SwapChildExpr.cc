@@ -2,29 +2,45 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/SwapChildExpr.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<SwapChildExpr> M("swap-child-expr",
-    "Randomly swap two child expressions of a BinaryOperator.");
+class SwapChildExpr : public Mutator,
+                      public clang::RecursiveASTVisitor<SwapChildExpr> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitBinaryOperator(clang::BinaryOperator *BO);
+
+private:
+  std::vector<clang::BinaryOperator *> TheOps;
+};
+
+static RegisterMutator<SwapChildExpr>
+    M("swap-child-expr",
+      "Randomly swap two child expressions of a BinaryOperator.");
 
 bool SwapChildExpr::VisitBinaryOperator(BinaryOperator *BO) {
-  if (isMutationSite(BO)) TheOps.push_back(BO);
+  if (isMutationSite(BO))
+    TheOps.push_back(BO);
   return true;
 }
 
 bool SwapChildExpr::mutate() {
   TraverseAST(getASTContext());
-  if (TheOps.empty()) return false;
+  if (TheOps.empty())
+    return false;
 
   BinaryOperator *selectedBO = randElement(TheOps);
 
   // Create a new BinaryOperator with swapped operands
-  auto newExpr = BinaryOperator::Create(getASTContext(),
+  auto newExpr = BinaryOperator::Create(
+      getASTContext(),
       selectedBO->getRHS(), // Swapped
       selectedBO->getLHS(), // Swapped
       selectedBO->getOpcode(), selectedBO->getType(),
@@ -35,7 +51,7 @@ bool SwapChildExpr::mutate() {
   clang::SourceLocation loc = selectedBO->getOperatorLoc();
   clang::Token token;
   clang::Lexer::getRawToken(loc, token, getASTContext().getSourceManager(),
-      getASTContext().getLangOpts());
+                            getASTContext().getLangOpts());
 
   // Check if the new BinaryOperator is valid
   clang::ExprResult result = getCompilerInstance().getSema().ActOnBinOp(

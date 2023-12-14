@@ -1,15 +1,31 @@
-#include "MutatorManager.h"
-#include "Stmt/ShuffleExprStmts.h"
 #include <algorithm>
 #include <clang/AST/ASTContext.h>
+#include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <random>
+#include <vector>
 
-using namespace ysmut;
+#include "Mutator.h"
+#include "MutatorManager.h"
+
 using namespace clang;
 
-static RegisterMutator<ShuffleExprStmts> M(
-    "shuffle-exprstmts", "Shuffle continuous non-declaration statements.");
+class ShuffleExprStmts : public Mutator,
+                         public clang::RecursiveASTVisitor<ShuffleExprStmts> {
+  using VisitorTy = clang::RecursiveASTVisitor<ShuffleExprStmts>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitCompoundStmt(clang::CompoundStmt *S);
+
+private:
+  std::vector<std::vector<clang::Stmt *>> StmtGroups;
+  std::vector<clang::Stmt *> CurrentGroup;
+};
+
+static RegisterMutator<ShuffleExprStmts>
+    M("shuffle-exprstmts", "Shuffle continuous non-declaration statements.");
 
 bool ShuffleExprStmts::VisitCompoundStmt(CompoundStmt *CS) {
   CurrentGroup.clear();
@@ -22,14 +38,16 @@ bool ShuffleExprStmts::VisitCompoundStmt(CompoundStmt *CS) {
       CurrentGroup.push_back(S);
     }
   }
-  if (CurrentGroup.size() > 1) StmtGroups.push_back(std::move(CurrentGroup));
+  if (CurrentGroup.size() > 1)
+    StmtGroups.push_back(std::move(CurrentGroup));
   return true;
 }
 
 bool ShuffleExprStmts::mutate() {
   TraverseAST(getASTContext());
 
-  if (StmtGroups.empty()) return false;
+  if (StmtGroups.empty())
+    return false;
 
   auto &group = randElement(StmtGroups);
 

@@ -3,27 +3,40 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <map>
 
-#include "Expr/ChangeReturnValue.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
+class ChangeReturnValue : public Mutator,
+                          public clang::RecursiveASTVisitor<ChangeReturnValue> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitReturnStmt(clang::ReturnStmt *RS);
 
-static RegisterMutator<ChangeReturnValue> M(
-    "change-return-value", "Change a function's return value.");
+private:
+  std::vector<clang::ReturnStmt *> TheReturns;
+};
+
+static RegisterMutator<ChangeReturnValue>
+    M("change-return-value", "Change a function's return value.");
 
 bool ChangeReturnValue::VisitReturnStmt(clang::ReturnStmt *RS) {
-  if (isMutationSite(RS)) TheReturns.push_back(RS);
+  if (isMutationSite(RS))
+    TheReturns.push_back(RS);
   return true;
 }
 
 bool ChangeReturnValue::mutate() {
   TraverseAST(getASTContext());
-  if (TheReturns.empty()) return false;
+  if (TheReturns.empty())
+    return false;
 
   clang::ReturnStmt *ret = randElement(TheReturns);
   clang::Expr *retval = ret->getRetValue();
-  if (!retval) return false;
+  if (!retval)
+    return false;
 
   // If the return value is an integer literal, add 1 to the value
   if (clang::IntegerLiteral *IL =

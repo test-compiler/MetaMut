@@ -3,20 +3,41 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <map>
 
-#include "Decl/ChangeVarDeclScope.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<ChangeVarDeclScope> M(
-    "change-vardecl-scope", "Change a variable's scope.");
+class ChangeVarDeclScope
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ChangeVarDeclScope> {
+  using VisitorTy = clang::RecursiveASTVisitor<ChangeVarDeclScope>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DR);
+  bool TraverseFunctionDecl(clang::FunctionDecl *FD);
+
+private:
+  clang::FunctionDecl *CurrFD = nullptr;
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, clang::FunctionDecl *> VarLocs;
+  std::map<clang::DeclRefExpr *, clang::FunctionDecl *> DRLocs;
+  std::map<clang::VarDecl *, std::vector<clang::DeclRefExpr *>> VarUses;
+};
+
+static RegisterMutator<ChangeVarDeclScope> M("change-vardecl-scope",
+                                             "Change a variable's scope.");
 
 bool ChangeVarDeclScope::VisitVarDecl(clang::VarDecl *VD) {
   VarLocs[VD] = CurrFD;
   if (isMutationSite(VD))
-    if (!isa<ParmVarDecl>(VD)) TheVars.push_back(VD);
+    if (!isa<ParmVarDecl>(VD))
+      TheVars.push_back(VD);
   return true;
 }
 
@@ -24,7 +45,8 @@ bool ChangeVarDeclScope::VisitDeclRefExpr(clang::DeclRefExpr *DR) {
   DRLocs[DR] = CurrFD;
   if (isMutationSite(DR)) {
     VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    if (VD) VarUses[VD].push_back(DR);
+    if (VD)
+      VarUses[VD].push_back(DR);
   }
   return true;
 }
@@ -38,7 +60,8 @@ bool ChangeVarDeclScope::TraverseFunctionDecl(clang::FunctionDecl *FD) {
 
 bool ChangeVarDeclScope::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   clang::VarDecl *VD = randElement(TheVars);
   std::string newName = generateUniqueName(VD->getNameAsString());
@@ -65,7 +88,8 @@ bool ChangeVarDeclScope::mutate() {
     std::set<FunctionDecl *> MeetFDs;
     for (DeclRefExpr *DR : VarUses[VD]) {
       auto FD = DRLocs[DR];
-      if (MeetFDs.find(FD) != MeetFDs.end()) continue;
+      if (MeetFDs.find(FD) != MeetFDs.end())
+        continue;
       MeetFDs.insert(FD);
       if (FD && FD->getBody()) {
         auto ILoc = dyn_cast<CompoundStmt>(FD->getBody())

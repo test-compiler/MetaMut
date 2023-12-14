@@ -3,14 +3,28 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/StripReturn.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<StripReturn> M("strip-return",
-    "Change a function's return type to void and strip return keyword.");
+class StripReturn : public Mutator,
+                    public clang::RecursiveASTVisitor<StripReturn> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitReturnStmt(clang::ReturnStmt *RS);
+
+private:
+  std::vector<clang::FunctionDecl *> TheFuncs;
+  std::vector<clang::ReturnStmt *> TheReturns;
+};
+
+static RegisterMutator<StripReturn>
+    M("strip-return",
+      "Change a function's return type to void and strip return keyword.");
 
 bool StripReturn::VisitFunctionDecl(FunctionDecl *FD) {
   if (isMutationSite(FD) && !FD->getReturnType()->isVoidType()) {
@@ -20,13 +34,15 @@ bool StripReturn::VisitFunctionDecl(FunctionDecl *FD) {
 }
 
 bool StripReturn::VisitReturnStmt(ReturnStmt *RS) {
-  if (isMutationSite(RS)) TheReturns.push_back(RS);
+  if (isMutationSite(RS))
+    TheReturns.push_back(RS);
   return true;
 }
 
 bool StripReturn::mutate() {
   TraverseAST(getASTContext());
-  if (TheFuncs.empty()) return false;
+  if (TheFuncs.empty())
+    return false;
 
   // Change random function's return type to void
   FunctionDecl *funcDecl = randElement(TheFuncs);
@@ -37,8 +53,8 @@ bool StripReturn::mutate() {
   TheReturns.clear();
   TraverseDecl(funcDecl);
   for (ReturnStmt *returnStmt : TheReturns) {
-    SourceRange returnRange(
-        returnStmt->getReturnLoc(), returnStmt->getReturnLoc());
+    SourceRange returnRange(returnStmt->getReturnLoc(),
+                            returnStmt->getReturnLoc());
     getRewriter().ReplaceText(returnRange, "");
   }
 

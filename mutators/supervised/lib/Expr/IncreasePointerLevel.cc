@@ -2,15 +2,32 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <map>
+#include <string>
+#include <vector>
 
-#include "Expr/IncreasePointerLevel.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<IncreasePointerLevel> M(
-    "increase-pointer-level", "Increase a variable's pointer level.");
+class IncreasePointerLevel
+    : public Mutator,
+      public clang::RecursiveASTVisitor<IncreasePointerLevel> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DRE);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::DeclRefExpr *>> VarToRefs;
+};
+
+static RegisterMutator<IncreasePointerLevel>
+    M("increase-pointer-level", "Increase a variable's pointer level.");
 
 bool IncreasePointerLevel::VisitVarDecl(VarDecl *VD) {
   TheVars.push_back(VD);
@@ -26,7 +43,8 @@ bool IncreasePointerLevel::VisitDeclRefExpr(DeclRefExpr *DRE) {
 
 bool IncreasePointerLevel::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   VarDecl *oldVar = randElement(TheVars);
 
@@ -34,7 +52,8 @@ bool IncreasePointerLevel::mutate() {
   std::string newVarName = "*" + oldVarName;
 
   // Replace old var name with new var name
-  getRewriter().ReplaceText(oldVar->getLocation(), oldVarName.size(), newVarName);
+  getRewriter().ReplaceText(oldVar->getLocation(), oldVarName.size(),
+                            newVarName);
 
   // Check if the VarDecl has an initializer
   if (oldVar->hasInit()) {

@@ -3,23 +3,37 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/SwitchToIf.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<SwitchToIf> M("switch-to-if",
-    "Convert a switch statement to a series of if-else statements.");
+class SwitchToIf : public Mutator,
+                   public clang::RecursiveASTVisitor<SwitchToIf> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitSwitchStmt(clang::SwitchStmt *SS);
+
+private:
+  std::vector<clang::SwitchStmt *> TheSwitches;
+};
+
+static RegisterMutator<SwitchToIf>
+    M("switch-to-if",
+      "Convert a switch statement to a series of if-else statements.");
 
 bool SwitchToIf::VisitSwitchStmt(SwitchStmt *SS) {
-  if (isMutationSite(SS)) TheSwitches.push_back(SS);
+  if (isMutationSite(SS))
+    TheSwitches.push_back(SS);
   return true;
 }
 
 bool SwitchToIf::mutate() {
   TraverseAST(getASTContext());
-  if (TheSwitches.empty()) return false;
+  if (TheSwitches.empty())
+    return false;
 
   SwitchStmt *sw = randElement(TheSwitches);
 

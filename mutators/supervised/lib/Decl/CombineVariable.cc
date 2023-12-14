@@ -2,18 +2,37 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <map>
+#include <string>
+#include <vector>
 
-#include "Decl/CombineVariable.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<CombineVariable> M(
-    "combine-variable", "Combine variables into a struct.");
+class CombineVariable : public Mutator,
+                        public clang::RecursiveASTVisitor<CombineVariable> {
+public:
+  using VisitorTy = clang::RecursiveASTVisitor<CombineVariable>;
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DRE);
+
+private:
+  clang::SourceLocation firstFunctionLoc;
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::DeclRefExpr *>> varDeclToRefs;
+};
+
+static RegisterMutator<CombineVariable> M("combine-variable",
+                                          "Combine variables into a struct.");
 
 bool CombineVariable::VisitVarDecl(VarDecl *VD) {
-  if (isMutationSite(VD)) TheVars.push_back(VD);
+  if (isMutationSite(VD))
+    TheVars.push_back(VD);
   return true;
 }
 
@@ -21,7 +40,8 @@ bool CombineVariable::VisitFunctionDecl(FunctionDecl *FD) {
   SourceManager &SM = getASTContext().getSourceManager();
   if (firstFunctionLoc.isInvalid() && SM.isInMainFile(FD->getLocation())) {
     auto *D = getMostRecentTranslationUnitDecl(FD);
-    if (D) firstFunctionLoc = D->getBeginLoc();
+    if (D)
+      firstFunctionLoc = D->getBeginLoc();
   }
   return true;
 }
@@ -36,7 +56,8 @@ bool CombineVariable::VisitDeclRefExpr(DeclRefExpr *DRE) {
 bool CombineVariable::mutate() {
   TraverseAST(getASTContext());
 
-  if (TheVars.size() < 1) return false;
+  if (TheVars.size() < 1)
+    return false;
 
   // Shuffle and get a random number of variables
   std::random_shuffle(TheVars.begin(), TheVars.end());

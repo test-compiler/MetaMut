@@ -3,14 +3,25 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <string>
 
-#include "Expr/RemoveUnaryExprOpcode.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
+class RemoveUnaryExprOpcode
+    : public Mutator,
+      public clang::RecursiveASTVisitor<RemoveUnaryExprOpcode> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitUnaryOperator(clang::UnaryOperator *UO);
 
-static RegisterMutator<RemoveUnaryExprOpcode> M(
-    "remove-unop", "Remove unary expression's operator.");
+private:
+  std::vector<const clang::UnaryOperator *> TheOperators;
+};
+
+static RegisterMutator<RemoveUnaryExprOpcode>
+    M("remove-unop", "Remove unary expression's operator.");
 
 bool RemoveUnaryExprOpcode::VisitUnaryOperator(clang::UnaryOperator *UO) {
   if (isMutationSite(UO))
@@ -20,7 +31,8 @@ bool RemoveUnaryExprOpcode::VisitUnaryOperator(clang::UnaryOperator *UO) {
 
 bool RemoveUnaryExprOpcode::mutate() {
   TraverseAST(getASTContext());
-  if (TheOperators.empty()) return false;
+  if (TheOperators.empty())
+    return false;
 
   const clang::UnaryOperator *expr = randElement(TheOperators);
   clang::SourceLocation OpLoc = expr->getOperatorLoc();

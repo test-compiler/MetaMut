@@ -4,15 +4,29 @@
 #include <clang/AST/Stmt.h>
 #include <clang/AST/Type.h>
 #include <clang/Basic/SourceManager.h>
+#include <map>
 
-#include "Expr/FlattenArray.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<FlattenArray> M(
-    "flatten-array", "Flatten multi-dimensional arrays to one dimension.");
+class FlattenArray : public Mutator,
+                     public clang::RecursiveASTVisitor<FlattenArray> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitArraySubscriptExpr(clang::ArraySubscriptExpr *ASE);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::ArraySubscriptExpr *>> VarUses;
+  std::map<clang::VarDecl *, unsigned long long> ArraySizes;
+};
+
+static RegisterMutator<FlattenArray>
+    M("flatten-array", "Flatten multi-dimensional arrays to one dimension.");
 
 bool FlattenArray::VisitVarDecl(clang::VarDecl *VD) {
   if (isMutationSite(VD)) {
@@ -25,7 +39,8 @@ bool FlattenArray::VisitVarDecl(clang::VarDecl *VD) {
                  clang::dyn_cast<clang::ConstantArrayType>(currentType)) {
         totalSize *= CAT->getSize().getZExtValue();
         currentType = CAT->getElementType()->getAsArrayTypeUnsafe();
-        if (!currentType) break;
+        if (!currentType)
+          break;
       }
       ArraySizes[VD] = totalSize;
       TheVars.push_back(VD);
@@ -49,7 +64,8 @@ bool FlattenArray::VisitArraySubscriptExpr(clang::ArraySubscriptExpr *ASE) {
 
 bool FlattenArray::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   clang::VarDecl *var = randElement(TheVars);
   std::string newName = generateUniqueName(var->getNameAsString());

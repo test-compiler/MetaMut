@@ -3,14 +3,26 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <string>
 
-#include "Func/SimpleInliner.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
+class SimpleInliner : public Mutator,
+                      public clang::RecursiveASTVisitor<SimpleInliner> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitCallExpr(clang::CallExpr *CE);
+  bool TraverseCompoundStmt(clang::CompoundStmt *CS);
 
-static RegisterMutator<SimpleInliner> M(
-    "simple-inliner", "Inline function calls.");
+private:
+  std::vector<std::pair<const clang::CallExpr *, clang::Stmt *>> TheCalls;
+  clang::Stmt *CurrentParent = nullptr;
+};
+
+static RegisterMutator<SimpleInliner> M("simple-inliner",
+                                        "Inline function calls.");
 
 bool SimpleInliner::VisitCallExpr(clang::CallExpr *CE) {
   if (isMutationSite(CE))
@@ -30,7 +42,8 @@ bool SimpleInliner::TraverseCompoundStmt(clang::CompoundStmt *CS) {
 
 bool SimpleInliner::mutate() {
   TraverseAST(getASTContext());
-  if (TheCalls.empty()) return false;
+  if (TheCalls.empty())
+    return false;
 
   auto [call, parent] = randElement(TheCalls);
   auto func = call->getDirectCallee();
@@ -41,7 +54,7 @@ bool SimpleInliner::mutate() {
   std::string parmsDecl;
   for (size_t i = 0; i < func->param_size() && i < call->getNumArgs(); ++i) {
     parmsDecl += formatAsDecl(func->getParamDecl(i)->getType(),
-        func->getParamDecl(i)->getNameAsString());
+                              func->getParamDecl(i)->getNameAsString());
     parmsDecl += " = ";
     parmsDecl += getSourceText(call->getArg(i)).str();
     parmsDecl += ";\n";
@@ -66,8 +79,8 @@ bool SimpleInliner::mutate() {
 
   // Replace the parent statement of the function call with the modified
   // function body
-  getRewriter().InsertText(
-      parent->getBeginLoc(), retvalDecl + "{\n" + parmsDecl + funcBody + "}");
+  getRewriter().InsertText(parent->getBeginLoc(),
+                           retvalDecl + "{\n" + parmsDecl + funcBody + "}");
   getRewriter().ReplaceText(call->getSourceRange(), retval);
   return true;
 }

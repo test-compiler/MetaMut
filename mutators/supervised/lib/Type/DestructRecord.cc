@@ -2,15 +2,35 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <map>
+#include <string>
+#include <vector>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Type/DestructRecord.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<DestructRecord> M(
-    "destruct-record", "Break struct/union variables into smaller variables.");
+class DestructRecord : public Mutator,
+                       public clang::RecursiveASTVisitor<DestructRecord> {
+public:
+  using VisitorTy = clang::RecursiveASTVisitor<DestructRecord>;
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitDeclStmt(clang::DeclStmt *DS);
+  bool TraverseFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitMemberExpr(clang::MemberExpr *ME);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::vector<clang::MemberExpr *> TheMembers;
+  std::map<clang::Decl *, clang::DeclStmt *> declToStmt;
+};
+
+static RegisterMutator<DestructRecord>
+    M("destruct-record",
+      "Break struct/union variables into smaller variables.");
 
 bool DestructRecord::TraverseFunctionDecl(clang::FunctionDecl *FD) {
   VisitorTy::TraverseFunctionDecl(FD);
@@ -32,14 +52,18 @@ bool DestructRecord::VisitDeclStmt(DeclStmt *DS) {
 }
 
 bool DestructRecord::VisitMemberExpr(MemberExpr *ME) {
-  if (isMutationSite(ME)) { TheMembers.push_back(ME); }
+  if (isMutationSite(ME)) {
+    TheMembers.push_back(ME);
+  }
   return true;
 }
 
 bool DestructRecord::mutate() {
   TraverseAST(getASTContext());
 
-  if (TheVars.empty() || TheMembers.empty()) { return false; }
+  if (TheVars.empty() || TheMembers.empty()) {
+    return false;
+  }
 
   VarDecl *var = randElement(TheVars);
 
@@ -61,8 +85,8 @@ bool DestructRecord::mutate() {
 
   // Insert at the correct location
   clang::DeclStmt *DS = declToStmt[var];
-  getRewriter().ReplaceText(
-      DS->getSourceRange(), getSourceText(DS).str() + declStr);
+  getRewriter().ReplaceText(DS->getSourceRange(),
+                            getSourceText(DS).str() + declStr);
 
   // Replace references to the record's fields with the corresponding smaller
   // variables
@@ -72,8 +96,8 @@ bool DestructRecord::mutate() {
       if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
         if (VD == var) {
           std::string fieldName = ME->getMemberDecl()->getNameAsString();
-          getRewriter().ReplaceText(
-              ME->getSourceRange(), fieldToVar[fieldName]);
+          getRewriter().ReplaceText(ME->getSourceRange(),
+                                    fieldToVar[fieldName]);
         }
       }
     }

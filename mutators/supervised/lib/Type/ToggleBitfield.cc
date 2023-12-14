@@ -2,17 +2,30 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Rewrite/Core/Rewriter.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Type/ToggleBitfield.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ToggleBitfield> M(
-    "toggle-bitfield", "Toggle bitfield of a struct or union field.");
+class ToggleBitfield : public Mutator,
+                       public clang::RecursiveASTVisitor<ToggleBitfield> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFieldDecl(clang::FieldDecl *FD);
+  bool VisitBinaryOperator(clang::BinaryOperator *BO);
+
+private:
+  std::vector<clang::FieldDecl *> TheFields;
+  std::set<clang::FieldDecl *> FieldUsedAsLValue;
+};
+
+static RegisterMutator<ToggleBitfield>
+    M("toggle-bitfield", "Toggle bitfield of a struct or union field.");
 
 bool ToggleBitfield::VisitFieldDecl(FieldDecl *FD) {
-  if (isMutationSite(FD)) TheFields.push_back(FD);
+  if (isMutationSite(FD))
+    TheFields.push_back(FD);
   return true;
 }
 
@@ -30,7 +43,8 @@ bool ToggleBitfield::VisitBinaryOperator(clang::BinaryOperator *BO) {
 
 bool ToggleBitfield::mutate() {
   TraverseAST(getASTContext());
-  if (TheFields.empty()) return false;
+  if (TheFields.empty())
+    return false;
 
   // Separate the fields into bitfield fields and non-bitfield fields
   std::vector<FieldDecl *> bitfieldFields;
@@ -44,7 +58,9 @@ bool ToggleBitfield::mutate() {
   }
 
   // If there are no eligible fields to mutate, return false
-  if (bitfieldFields.empty() && nonBitfieldFields.empty()) { return false; }
+  if (bitfieldFields.empty() && nonBitfieldFields.empty()) {
+    return false;
+  }
 
   // Choose a random eligible field to mutate
   FieldDecl *field;
@@ -79,7 +95,8 @@ bool ToggleBitfield::mutate() {
   // Replace the original field with the new field declaration
   SourceLocation start = field->getBeginLoc();
   SourceLocation end = Lexer::getLocForEndOfToken(
-      field->getEndLoc(), 0, getASTContext().getSourceManager(), getASTContext().getLangOpts());
+      field->getEndLoc(), 0, getASTContext().getSourceManager(),
+      getASTContext().getLangOpts());
   getRewriter().ReplaceText(clang::SourceRange(start, end), newFieldDecl);
   return true;
 }

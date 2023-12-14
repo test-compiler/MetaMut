@@ -2,15 +2,36 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <set>
+#include <stack>
+#include <string>
 
-#include "Expr/ChangeDeclRef.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ChangeDeclRef> M(
-    "change-declref", "Change a DeclRefExpr's referenced variable.");
+class ChangeDeclRef : public Mutator,
+                      public clang::RecursiveASTVisitor<ChangeDeclRef> {
+
+  using VisitorTy = clang::RecursiveASTVisitor<ChangeDeclRef>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DRE);
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool TraverseCompoundStmt(clang::CompoundStmt *CS);
+  bool TraverseFunctionDecl(clang::FunctionDecl *FD);
+
+private:
+  std::map<clang::DeclRefExpr *, std::vector<clang::VarDecl *>> ExprVarsMap;
+  std::vector<clang::DeclRefExpr *> TheRefs;
+  std::vector<std::vector<clang::VarDecl *>> TheVars;
+};
+
+static RegisterMutator<ChangeDeclRef>
+    M("change-declref", "Change a DeclRefExpr's referenced variable.");
 
 bool ChangeDeclRef::TraverseFunctionDecl(clang::FunctionDecl *FD) {
   TheVars.push_back(TheVars.back());
@@ -42,24 +63,29 @@ bool ChangeDeclRef::VisitDeclRefExpr(DeclRefExpr *DRE) {
 }
 
 bool ChangeDeclRef::VisitVarDecl(VarDecl *VD) {
-  if (!TheVars.empty()) { TheVars.back().push_back(VD); }
+  if (!TheVars.empty()) {
+    TheVars.back().push_back(VD);
+  }
   return true;
 }
 
 bool ChangeDeclRef::mutate() {
   TheVars.push_back({});
   TraverseAST(getASTContext());
-  if (TheRefs.empty() || TheVars.empty()) return false;
+  if (TheRefs.empty() || TheVars.empty())
+    return false;
 
   DeclRefExpr *ref = randElement(TheRefs);
   if (!isa<VarDecl>(ref->getDecl()))
     return false; // Ensure the Decl is actually a VarDecl
 
   VarDecl *oldVar = cast<VarDecl>(ref->getDecl());
-  if (ExprVarsMap[ref].size() == 0) return false;
+  if (ExprVarsMap[ref].size() == 0)
+    return false;
 
   VarDecl *newVar = randElement(ExprVarsMap[ref]);
-  if (oldVar == newVar) return false;
+  if (oldVar == newVar)
+    return false;
 
   // Replace the old variable with the new one
   getRewriter().ReplaceText(ref->getSourceRange(), newVar->getNameAsString());

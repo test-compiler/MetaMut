@@ -5,15 +5,31 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Lex/Lexer.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/RandomCopyPropagation.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<RandomCopyPropagation> M(
-    "random-copy-propagation", "Propagate the RHS expression of assignment");
+class RandomCopyPropagation
+    : public Mutator,
+      public clang::RecursiveASTVisitor<RandomCopyPropagation> {
+  using VisitorTy = clang::RecursiveASTVisitor<RandomCopyPropagation>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool TraverseBinaryOperator(clang::BinaryOperator *BO);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DR);
+
+private:
+  std::map<clang::VarDecl *, std::vector<clang::Expr *>> choices;
+  std::map<clang::VarDecl *, std::vector<clang::DeclRefExpr *>> refExprs;
+};
+
+static RegisterMutator<RandomCopyPropagation>
+    M("random-copy-propagation", "Propagate the RHS expression of assignment");
 
 bool RandomCopyPropagation::TraverseBinaryOperator(clang::BinaryOperator *BO) {
   if (BO->getOpcode() != clang::BO_Assign)
@@ -26,7 +42,9 @@ bool RandomCopyPropagation::TraverseBinaryOperator(clang::BinaryOperator *BO) {
   if (LHS && RHS) {
     auto LHSVarDecl = clang::dyn_cast<clang::VarDecl>(LHS->getDecl());
 
-    if (LHSVarDecl) { choices[LHSVarDecl].push_back(RHS); }
+    if (LHSVarDecl) {
+      choices[LHSVarDecl].push_back(RHS);
+    }
   }
 
   VisitorTy::TraverseStmt(BO->getRHS());
@@ -35,7 +53,8 @@ bool RandomCopyPropagation::TraverseBinaryOperator(clang::BinaryOperator *BO) {
 
 bool RandomCopyPropagation::VisitDeclRefExpr(clang::DeclRefExpr *DR) {
   auto *varDecl = clang::dyn_cast<clang::VarDecl>(DR->getDecl());
-  if (varDecl && isMutationSite(DR)) refExprs[varDecl].push_back(DR);
+  if (varDecl && isMutationSite(DR))
+    refExprs[varDecl].push_back(DR);
   return true;
 }
 
@@ -44,9 +63,11 @@ bool RandomCopyPropagation::mutate() {
 
   std::vector<clang::VarDecl *> vars;
   for (auto &kv : choices)
-    if (refExprs.find(kv.first) != refExprs.end()) vars.push_back(kv.first);
+    if (refExprs.find(kv.first) != refExprs.end())
+      vars.push_back(kv.first);
 
-  if (vars.empty()) return false;
+  if (vars.empty())
+    return false;
 
   clang::VarDecl *varDecl = randElement(vars);
   auto exprs = refExprs[varDecl];

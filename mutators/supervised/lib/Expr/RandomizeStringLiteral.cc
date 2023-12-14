@@ -2,24 +2,42 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/RandomizeStringLiteral.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<RandomizeStringLiteral> M("randomize-string-literal",
-    "Randomly add/delete/duplicate characters in a string literal.");
+class RandomizeStringLiteral
+    : public Mutator,
+      public clang::RecursiveASTVisitor<RandomizeStringLiteral> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitStringLiteral(clang::StringLiteral *SL);
+
+private:
+  std::vector<clang::StringLiteral *> TheStringLiterals;
+  std::string mutateString(const std::string &oldString);
+  std::string escape(const std::string &s);
+};
+
+static RegisterMutator<RandomizeStringLiteral>
+    M("randomize-string-literal",
+      "Randomly add/delete/duplicate characters in a string literal.");
 
 bool RandomizeStringLiteral::VisitStringLiteral(StringLiteral *SL) {
-  if (isMutationSite(SL)) TheStringLiterals.push_back(SL);
+  if (isMutationSite(SL))
+    TheStringLiterals.push_back(SL);
   return true;
 }
 
 bool RandomizeStringLiteral::mutate() {
   TraverseAST(getASTContext());
-  if (TheStringLiterals.empty()) return false;
+  if (TheStringLiterals.empty())
+    return false;
 
   StringLiteral *SL = randElement(TheStringLiterals);
   std::string oldString = SL->getBytes().str();
@@ -32,7 +50,7 @@ bool RandomizeStringLiteral::mutate() {
 }
 
 std::string to_hex(char val) {
-  assert (val < 16);
+  assert(val < 16);
   val += (val < 10) ? '0' : ('a' - 10);
   return std::string(&val, 1);
 }
@@ -41,11 +59,21 @@ std::string RandomizeStringLiteral::escape(const std::string &s) {
   std::string res;
   for (char c : s) {
     switch (c) {
-    case '\\': res += "\\\\"; break;
-    case '\n': res += "\\n"; break;
-    case '\t': res += "\\t"; break;
-    case '"': res += "\\\""; break;
-    case '\'': res += "\\\'"; break;
+    case '\\':
+      res += "\\\\";
+      break;
+    case '\n':
+      res += "\\n";
+      break;
+    case '\t':
+      res += "\\t";
+      break;
+    case '"':
+      res += "\\\"";
+      break;
+    case '\'':
+      res += "\\\'";
+      break;
     default:
       if (isprint(c))
         res += c;

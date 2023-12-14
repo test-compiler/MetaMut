@@ -4,8 +4,6 @@
 #include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
-
 unsigned Mutator::randIndex(unsigned n) {
   return getManager().randint(0, n - 1);
 }

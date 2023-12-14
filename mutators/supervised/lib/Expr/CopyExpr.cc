@@ -4,15 +4,28 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/CopyExpr.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<CopyExpr> M(
-    "copy-expr", "Copy expression to a variable or constant literal.");
+class CopyExpr : public Mutator, public clang::RecursiveASTVisitor<CopyExpr> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitExpr(clang::Expr *E);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DR);
+  bool VisitIntegerLiteral(clang::IntegerLiteral *IL);
+
+private:
+  std::vector<clang::Expr *> TheExprs;
+  std::vector<clang::Expr *> TheOldVars;
+};
+
+static RegisterMutator<CopyExpr>
+    M("copy-expr", "Copy expression to a variable or constant literal.");
 
 bool CopyExpr::VisitExpr(Expr *E) {
   if (isMutationSite(E))
@@ -22,18 +35,21 @@ bool CopyExpr::VisitExpr(Expr *E) {
 }
 
 bool CopyExpr::VisitDeclRefExpr(DeclRefExpr *DR) {
-  if (isMutationSite(DR)) TheOldVars.push_back(DR);
+  if (isMutationSite(DR))
+    TheOldVars.push_back(DR);
   return true;
 }
 
 bool CopyExpr::VisitIntegerLiteral(IntegerLiteral *IL) {
-  if (isMutationSite(IL)) TheOldVars.push_back(IL);
+  if (isMutationSite(IL))
+    TheOldVars.push_back(IL);
   return true;
 }
 
 bool CopyExpr::mutate() {
   TraverseAST(getASTContext());
-  if (TheExprs.empty() || TheOldVars.empty()) return false;
+  if (TheExprs.empty() || TheOldVars.empty())
+    return false;
 
   Expr *expr = randElement(TheExprs);
 

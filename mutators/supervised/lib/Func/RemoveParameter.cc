@@ -1,40 +1,57 @@
 #include <algorithm>
-#include <random>
-#include <vector>
-
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Lex/Lexer.h>
 #include <clang/Sema/Sema.h>
+#include <map>
+#include <random>
+#include <string>
+#include <vector>
 
-#include "Func/RemoveParameter.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<RemoveParameter> M(
-    "remove-parameter", "Remove a function's parameter.");
+class RemoveParameter : public Mutator,
+                        public clang::RecursiveASTVisitor<RemoveParameter> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitCallExpr(clang::CallExpr *CE);
+
+private:
+  std::vector<clang::FunctionDecl *> TheFuncs;
+  std::map<clang::FunctionDecl *, std::vector<clang::CallExpr *>> FuncToCalls;
+};
+
+static RegisterMutator<RemoveParameter> M("remove-parameter",
+                                          "Remove a function's parameter.");
 
 bool RemoveParameter::VisitFunctionDecl(FunctionDecl *FD) {
-  if (FD->getNumParams() > 0) TheFuncs.push_back(FD);
+  if (FD->getNumParams() > 0)
+    TheFuncs.push_back(FD);
   return true;
 }
 
 bool RemoveParameter::VisitCallExpr(CallExpr *CE) {
   if (FunctionDecl *FD = CE->getDirectCallee()) {
-    if (FD->getNumParams() > 0) FuncToCalls[FD].push_back(CE);
+    if (FD->getNumParams() > 0)
+      FuncToCalls[FD].push_back(CE);
   }
   return true;
 }
 
 bool RemoveParameter::mutate() {
   TraverseAST(getASTContext());
-  if (TheFuncs.empty()) return false;
+  if (TheFuncs.empty())
+    return false;
 
-  std::shuffle(
-      TheFuncs.begin(), TheFuncs.end(), getManager().getRandomGenerator());
+  std::shuffle(TheFuncs.begin(), TheFuncs.end(),
+               getManager().getRandomGenerator());
   for (FunctionDecl *func : TheFuncs) {
     unsigned i = randIndex(func->getNumParams());
     ParmVarDecl *param = func->getParamDecl(i);

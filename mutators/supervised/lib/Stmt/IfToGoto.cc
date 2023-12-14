@@ -3,23 +3,35 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/IfToGoto.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<IfToGoto> M(
-    "if-to-goto", "Convert an if-else statement to goto statements.");
+class IfToGoto : public Mutator, public clang::RecursiveASTVisitor<IfToGoto> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitIfStmt(clang::IfStmt *IS);
+
+private:
+  std::vector<clang::IfStmt *> TheIfs;
+};
+
+static RegisterMutator<IfToGoto>
+    M("if-to-goto", "Convert an if-else statement to goto statements.");
 
 bool IfToGoto::VisitIfStmt(IfStmt *IS) {
-  if (isMutationSite(IS)) TheIfs.push_back(IS);
+  if (isMutationSite(IS))
+    TheIfs.push_back(IS);
   return true;
 }
 
 bool IfToGoto::mutate() {
   TraverseAST(getASTContext());
-  if (TheIfs.empty()) return false;
+  if (TheIfs.empty())
+    return false;
 
   IfStmt *ifStmt = randElement(TheIfs);
 
@@ -37,7 +49,9 @@ bool IfToGoto::mutate() {
   gotoText += ";\n";
   gotoText += elseLabel;
   gotoText += ": \n";
-  if (ifStmt->getElse()) { gotoText += getSourceText(ifStmt->getElse()).str(); }
+  if (ifStmt->getElse()) {
+    gotoText += getSourceText(ifStmt->getElse()).str();
+  }
   gotoText += "\n";
   gotoText += endLabel;
   gotoText += ": ;";

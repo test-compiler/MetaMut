@@ -38,13 +38,3 @@ target_include_directories(MutatorCollection PRIVATE
 target_link_directories(MutatorCollection PRIVATE
   ${LLVM_LIBRARY_DIRS})
 target_compile_options(MutatorCollection PRIVATE -ggdb3)
-
-if (DEFINED AFL_HOME)
-  add_library(MetaMutAFL SHARED ${SOURCES} afl.cc)
-  target_include_directories(MetaMutAFL PRIVATE include
-    ${AFL_HOME}/include ${LLVM_INCLUDE_DIRS})
-  target_link_libraries(MetaMutAFL PRIVATE ${LINK_LIBS})
-  target_link_directories(MetaMutAFL PRIVATE
-    ${LLVM_LIBRARY_DIRS})
-  target_compile_options(MetaMutAFL PRIVATE -ggdb3)
-endif ()

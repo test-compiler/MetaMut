@@ -3,22 +3,37 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/SwitchToGoto.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<SwitchToGoto> M(
-    "switch-to-goto", "Convert a switch statement to goto statements.");
+class SwitchToGoto : public Mutator,
+                     public clang::RecursiveASTVisitor<SwitchToGoto> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitSwitchStmt(clang::SwitchStmt *SS);
+
+private:
+  std::vector<clang::SwitchStmt *> TheSwitches;
+  std::string getSourceTextRemovingBreak(clang::Stmt *stmt,
+                                         const std::string &endLabel);
+};
+
+static RegisterMutator<SwitchToGoto>
+    M("switch-to-goto", "Convert a switch statement to goto statements.");
 
 bool SwitchToGoto::VisitSwitchStmt(SwitchStmt *SS) {
-  if (isMutationSite(SS)) TheSwitches.push_back(SS);
+  if (isMutationSite(SS))
+    TheSwitches.push_back(SS);
   return true;
 }
 
-std::string SwitchToGoto::getSourceTextRemovingBreak(
-    clang::Stmt *stmt, const std::string &endLabel) {
+std::string
+SwitchToGoto::getSourceTextRemovingBreak(clang::Stmt *stmt,
+                                         const std::string &endLabel) {
   std::string stmtText = getSourceText(stmt).str();
 
   // Replace "break;" with "goto end_label;"
@@ -28,7 +43,8 @@ std::string SwitchToGoto::getSourceTextRemovingBreak(
   while (true) {
     /* Locate the substring to replace. */
     index = stmtText.find(searchStr, index);
-    if (index == std::string::npos) break;
+    if (index == std::string::npos)
+      break;
 
     /* Make the replacement. */
     stmtText.replace(index, searchStr.size(), replaceStr);
@@ -43,7 +59,8 @@ std::string SwitchToGoto::getSourceTextRemovingBreak(
 
 bool SwitchToGoto::mutate() {
   TraverseAST(getASTContext());
-  if (TheSwitches.empty()) return false;
+  if (TheSwitches.empty())
+    return false;
 
   SwitchStmt *switchStmt = randElement(TheSwitches);
 
@@ -70,8 +87,7 @@ bool SwitchToGoto::mutate() {
 
     gotoText += caseLabel;
     gotoText += ": \n";
-    gotoText +=
-        getSourceTextRemovingBreak(SC->getSubStmt(), endLabel);
+    gotoText += getSourceTextRemovingBreak(SC->getSubStmt(), endLabel);
     gotoText += ";\n";
   }
 

@@ -3,15 +3,28 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/DuplicateWithUnaryOp.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<DuplicateWithUnaryOp> X(
-    "duplicate-with-unop", "Duplicate an expression with a unary operator.");
+class DuplicateWithUnaryOp
+    : public Mutator,
+      public clang::RecursiveASTVisitor<DuplicateWithUnaryOp> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitExpr(clang::Expr *E);
+
+private:
+  std::vector<clang::Expr *> TheExprs;
+};
+
+static RegisterMutator<DuplicateWithUnaryOp>
+    X("duplicate-with-unop", "Duplicate an expression with a unary operator.");
 
 bool DuplicateWithUnaryOp::VisitExpr(Expr *E) {
   if (isMutationSite(E) &&
@@ -23,7 +36,8 @@ bool DuplicateWithUnaryOp::VisitExpr(Expr *E) {
 
 bool DuplicateWithUnaryOp::mutate() {
   TraverseAST(getASTContext());
-  if (TheExprs.empty()) return false;
+  if (TheExprs.empty())
+    return false;
 
   Expr *expr = randElement(TheExprs); // Choose an expression randomly
 
@@ -35,9 +49,9 @@ bool DuplicateWithUnaryOp::mutate() {
 
   for (const auto &op : ops) {
     Expr *operand = expr->IgnoreImpCasts();
-    UnaryOperator *newExpr = UnaryOperator::Create(getASTContext(), operand, op,
-        operand->getType(), VK_RValue, OK_Ordinary, expr->getExprLoc(), false,
-        FPOptionsOverride{});
+    UnaryOperator *newExpr = UnaryOperator::Create(
+        getASTContext(), operand, op, operand->getType(), VK_RValue,
+        OK_Ordinary, expr->getExprLoc(), false, FPOptionsOverride{});
 
     // Check if the new expression is valid
     if (getCompilerInstance()

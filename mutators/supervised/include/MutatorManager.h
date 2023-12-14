@@ -1,5 +1,5 @@
-#ifndef YSMUT_MUTATORMANAGER_H
-#define YSMUT_MUTATORMANAGER_H
+#ifndef MUTATORCOLLECTION_MUTATORMANAGER_H
+#define MUTATORCOLLECTION_MUTATORMANAGER_H
 
 #include <random>
 #include <cassert>
@@ -13,8 +13,6 @@
 namespace llvm {
 class MemoryBuffer;
 };
-
-namespace ysmut {
 
 class Mutator;
 
@@ -88,7 +86,5 @@ public:
     MutatorManager::registerMutator(name, impl);
   }
 };
-
-} // namespace ysmut
 
 #endif

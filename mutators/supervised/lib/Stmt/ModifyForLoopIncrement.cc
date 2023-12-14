@@ -1,40 +1,59 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
+#include <random>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/ModifyForLoopIncrement.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ModifyForLoopIncrement> M(
-    "modify-forloopincrement", "Modify the increment step in a For loop.");
+class ModifyForLoopIncrement
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ModifyForLoopIncrement> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitForStmt(clang::ForStmt *FS);
+
+private:
+  std::vector<clang::ForStmt *> TheLoops;
+};
+
+static RegisterMutator<ModifyForLoopIncrement>
+    M("modify-forloopincrement", "Modify the increment step in a For loop.");
 
 bool ModifyForLoopIncrement::VisitForStmt(ForStmt *FS) {
-  if (isMutationSite(FS)) TheLoops.push_back(FS);
+  if (isMutationSite(FS))
+    TheLoops.push_back(FS);
   return true;
 }
 
 bool ModifyForLoopIncrement::mutate() {
   TraverseAST(getASTContext());
-  if (TheLoops.empty()) return false;
+  if (TheLoops.empty())
+    return false;
 
   ForStmt *fs = randElement(TheLoops);
 
   Expr *incExpr = fs->getInc();
-  if (!incExpr) return false;
+  if (!incExpr)
+    return false;
 
   // Handle CompoundAssignOperator (i += step, i -= step)
   if (auto *compoundAssign =
           dyn_cast_or_null<CompoundAssignOperator>(incExpr)) {
     auto *rhs =
         dyn_cast<IntegerLiteral>(compoundAssign->getRHS()->IgnoreImpCasts());
-    if (!rhs) return false;
+    if (!rhs)
+      return false;
 
     int oldIncr = rhs->getValue().getLimitedValue();
     int newIncr;
 
-    do { newIncr = randIndex(10); } while (newIncr == oldIncr);
+    do {
+      newIncr = randIndex(10);
+    } while (newIncr == oldIncr);
 
     getRewriter().ReplaceText(rhs->getSourceRange(), std::to_string(newIncr));
 
@@ -47,10 +66,12 @@ bool ModifyForLoopIncrement::mutate() {
     std::string subExprStr = getSourceText(unaryOp->getSubExpr()).str();
     if (opKind == UO_PostInc || opKind == UO_PreInc) { // i++
       std::string newIncr = std::to_string(randIndex(10) + 2);
-      getRewriter().ReplaceText(unaryOp->getSourceRange(), subExprStr + " += " + newIncr);
+      getRewriter().ReplaceText(unaryOp->getSourceRange(),
+                                subExprStr + " += " + newIncr);
     } else if (opKind == UO_PostDec || opKind == UO_PreDec) { // i--
       std::string newIncr = std::to_string(randIndex(10) + 2);
-      getRewriter().ReplaceText(unaryOp->getSourceRange(), subExprStr + " -= " + newIncr);
+      getRewriter().ReplaceText(unaryOp->getSourceRange(),
+                                subExprStr + " -= " + newIncr);
     }
 
     return true;

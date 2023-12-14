@@ -1,15 +1,30 @@
-#include "MutatorManager.h"
-#include "Type/ShuffleFields.h"
 #include <algorithm>
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/Decl.h>
+#include <clang/AST/RecursiveASTVisitor.h>
 #include <random>
+#include <vector>
 
-using namespace ysmut;
+#include "Mutator.h"
+#include "MutatorManager.h"
+
 using namespace clang;
 
-static RegisterMutator<ShuffleFields> M(
-    "shuffle-fields", "Shuffle fields of a record.");
+class ShuffleFields : public Mutator,
+                      public clang::RecursiveASTVisitor<ShuffleFields> {
+  using VisitorTy = clang::RecursiveASTVisitor<ShuffleFields>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitRecordDecl(clang::RecordDecl *D);
+
+private:
+  std::vector<clang::RecordDecl *> Records;
+};
+
+static RegisterMutator<ShuffleFields> M("shuffle-fields",
+                                        "Shuffle fields of a record.");
 
 bool ShuffleFields::VisitRecordDecl(RecordDecl *D) {
   Records.push_back(D);
@@ -19,7 +34,8 @@ bool ShuffleFields::VisitRecordDecl(RecordDecl *D) {
 bool ShuffleFields::mutate() {
   TraverseAST(getASTContext());
 
-  if (Records.empty()) return false;
+  if (Records.empty())
+    return false;
 
   // Select a random RecordDecl
   RecordDecl *D = randElement(Records);

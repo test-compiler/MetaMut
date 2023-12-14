@@ -1,23 +1,37 @@
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
+#include <string>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/RemoveStmt.h"
 
 using namespace clang;
-using namespace ysmut;
+
+class RemoveStmt : public Mutator,
+                   public clang::RecursiveASTVisitor<RemoveStmt> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitStmt(clang::Stmt *S);
+
+private:
+  std::vector<clang::Stmt *> TheStatements;
+};
 
 static RegisterMutator<RemoveStmt> M("remove-stmt", "Remove a statement.");
 
 bool RemoveStmt::VisitStmt(Stmt *S) {
-  if (isMutationSite(S)) TheStatements.push_back(S);
+  if (isMutationSite(S))
+    TheStatements.push_back(S);
   return true;
 }
 
 bool RemoveStmt::mutate() {
   TraverseAST(getASTContext());
-  if (TheStatements.empty()) return false;
+  if (TheStatements.empty())
+    return false;
 
   Stmt *stmt = randElement(TheStatements);
 

@@ -1,23 +1,38 @@
 #include <clang/AST/ASTContext.h>
+#include <clang/AST/Expr.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <string>
 
-#include "Func/SimpleUninliner.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
+class SimpleUninliner : public Mutator,
+                        public clang::RecursiveASTVisitor<SimpleUninliner> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitCompoundStmt(clang::CompoundStmt *CS);
 
-static RegisterMutator<SimpleUninliner> M(
-    "simple-uninliner", "Turn a block of code into a function call.");
+private:
+  std::vector<clang::CompoundStmt *> TheStmts;
+  clang::FunctionDecl *FirstFD = nullptr;
+};
+
+static RegisterMutator<SimpleUninliner>
+    M("simple-uninliner", "Turn a block of code into a function call.");
 
 bool SimpleUninliner::VisitFunctionDecl(clang::FunctionDecl *FD) {
-  if (!FirstFD) FirstFD = FD;
+  if (!FirstFD)
+    FirstFD = FD;
   return true;
 }
 
 bool SimpleUninliner::VisitCompoundStmt(clang::CompoundStmt *CS) {
-  if (isMutationSite(CS)) TheStmts.push_back(CS);
+  if (isMutationSite(CS))
+    TheStmts.push_back(CS);
   return true;
 }
 
@@ -35,7 +50,8 @@ public:
 
 bool SimpleUninliner::mutate() {
   TraverseAST(getASTContext());
-  if (TheStmts.empty()) return false;
+  if (TheStmts.empty())
+    return false;
 
   clang::CompoundStmt *stmt = randElement(TheStmts);
 
@@ -58,8 +74,10 @@ bool SimpleUninliner::mutate() {
   }
 
   // Remove trailing commas from the argument lists
-  if (!funcArgs.empty()) funcArgs.erase(funcArgs.length() - 2);
-  if (!callArgs.empty()) callArgs.erase(callArgs.length() - 2);
+  if (!funcArgs.empty())
+    funcArgs.erase(funcArgs.length() - 2);
+  if (!callArgs.empty())
+    callArgs.erase(callArgs.length() - 2);
 
   // Create the new function definition
   std::string funcDef =
@@ -68,7 +86,7 @@ bool SimpleUninliner::mutate() {
   // Replace the block of code with a call to the new function
   getRewriter().ReplaceText(
       clang::SourceRange(stmt->getLBracLoc().getLocWithOffset(1),
-          stmt->getRBracLoc().getLocWithOffset(-1)),
+                         stmt->getRBracLoc().getLocWithOffset(-1)),
       funcName + "(" + callArgs + ");");
 
   // Insert the function definition at the top of the file

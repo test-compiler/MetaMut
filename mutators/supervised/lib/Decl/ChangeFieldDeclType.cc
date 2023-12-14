@@ -2,12 +2,28 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <clang/AST/RecursiveASTVisitor.h>
+#include <string>
+#include <llvm/ADT/DenseSet.h>
 
-#include "Decl/ChangeFieldDeclType.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
+
+class ChangeFieldDeclType : public Mutator,
+                            public clang::RecursiveASTVisitor<ChangeFieldDeclType> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFieldDecl(clang::FieldDecl *FD);
+  bool VisitDecl(clang::Decl *D);
+
+private:
+  std::vector<clang::FieldDecl *> TheFields;
+  llvm::DenseSet<clang::QualType, llvm::DenseMapInfo<clang::QualType>> TheTypes;
+};
 
 static RegisterMutator<ChangeFieldDeclType> M(
     "change-fielddecltype", "Change a FieldDecl's type to a compliant one.");

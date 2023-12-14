@@ -3,11 +3,24 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <clang/AST/Decl.h>
+#include <clang/AST/RecursiveASTVisitor.h>
+#include <map>
 
-#include "Decl/ChangeVarDeclQualifier.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
+class ChangeVarDeclQualifier
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ChangeVarDeclQualifier> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+};
 
 static RegisterMutator<ChangeVarDeclQualifier> M(
     "change-vardecl-qualifier", "Change a variable's type qualifier.");

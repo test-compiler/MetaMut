@@ -3,15 +3,29 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <map>
 
-#include "Decl/ChangeParamScope.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<ChangeParamScope> M(
-    "change-param-scope", "Change a parameter's scope.");
+class ChangeParamScope : public Mutator,
+                         public clang::RecursiveASTVisitor<ChangeParamScope> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DR);
+
+private:
+  std::vector<clang::ParmVarDecl *> TheParams;
+  std::map<clang::ParmVarDecl *, clang::FunctionDecl *> ParamLocs;
+  std::map<clang::ParmVarDecl *, std::vector<clang::DeclRefExpr *>> ParamUses;
+};
+
+static RegisterMutator<ChangeParamScope> M("change-param-scope",
+                                           "Change a parameter's scope.");
 
 bool ChangeParamScope::VisitFunctionDecl(clang::FunctionDecl *FD) {
   if (isMutationSite(FD)) {
@@ -26,14 +40,16 @@ bool ChangeParamScope::VisitFunctionDecl(clang::FunctionDecl *FD) {
 bool ChangeParamScope::VisitDeclRefExpr(clang::DeclRefExpr *DR) {
   if (isMutationSite(DR)) {
     ParmVarDecl *PVD = dyn_cast<ParmVarDecl>(DR->getDecl());
-    if (PVD) ParamUses[PVD].push_back(DR);
+    if (PVD)
+      ParamUses[PVD].push_back(DR);
   }
   return true;
 }
 
 bool ChangeParamScope::mutate() {
   TraverseAST(getASTContext());
-  if (TheParams.empty()) return false;
+  if (TheParams.empty())
+    return false;
 
   clang::ParmVarDecl *param = randElement(TheParams);
   std::string newName = generateUniqueName(param->getNameAsString());
@@ -51,11 +67,13 @@ bool ChangeParamScope::mutate() {
     }
   } else {
     // Move parameter declaration to local scope
-    if(FunctionDecl *FD = param->getDeclContext()->getNonClosureAncestor()->getAsFunction()) { 
+    if (FunctionDecl *FD =
+            param->getDeclContext()->getNonClosureAncestor()->getAsFunction()) {
       CompoundStmt *body = dyn_cast<CompoundStmt>(FD->getBody());
       if (body) {
         clang::SourceLocation SL = body->getLBracLoc();
-        getRewriter().InsertTextAfter(SL.getLocWithOffset(1), newParamDeclString + " = {0};\n");
+        getRewriter().InsertTextAfter(SL.getLocWithOffset(1),
+                                      newParamDeclString + " = {0};\n");
       }
     }
   }

@@ -16,7 +16,6 @@
 #include "MutatorManager.h"
 #include "json.hpp"
 
-using namespace ysmut;
 using json = nlohmann::ordered_json;
 
 class SyntaxOnlyConsumer : public clang::ASTConsumer {

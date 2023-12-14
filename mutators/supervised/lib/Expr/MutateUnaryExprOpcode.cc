@@ -4,15 +4,30 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/MutateUnaryExprOpcode.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<MutateUnaryExprOpcode> M(
-    "mutate-unop", "Change unary expression's operator.");
+class MutateUnaryExprOpcode
+    : public Mutator,
+      public clang::RecursiveASTVisitor<MutateUnaryExprOpcode> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitUnaryOperator(clang::UnaryOperator *UO);
+
+private:
+  std::vector<clang::UnaryOperator *> TheOperators;
+
+  std::vector<clang::UnaryOperatorKind>
+  computeValidAlternatives(clang::UnaryOperator *op);
+};
+
+static RegisterMutator<MutateUnaryExprOpcode>
+    M("mutate-unop", "Change unary expression's operator.");
 
 bool MutateUnaryExprOpcode::VisitUnaryOperator(UnaryOperator *UO) {
   if (isMutationSite(UO) && UO->getOpcode() != UO_PostInc &&
@@ -23,25 +38,27 @@ bool MutateUnaryExprOpcode::VisitUnaryOperator(UnaryOperator *UO) {
 
 bool MutateUnaryExprOpcode::mutate() {
   TraverseAST(getASTContext());
-  if (TheOperators.empty()) return false;
+  if (TheOperators.empty())
+    return false;
 
   UnaryOperator *expr = randElement(TheOperators);
 
   // perform rewrite
   auto newOps = computeValidAlternatives(expr);
-  if (newOps.size() == 0) return false;
+  if (newOps.size() == 0)
+    return false;
   UnaryOperatorKind newOpKind = newOps[randIndex(newOps.size())];
   SourceLocation OpLoc = expr->getOperatorLoc();
 
   std::string NewOp = UnaryOperator::getOpcodeStr(newOpKind).str();
-  getRewriter().ReplaceText(
-      OpLoc, expr->getOpcodeStr(expr->getOpcode()).size(), NewOp);
+  getRewriter().ReplaceText(OpLoc, expr->getOpcodeStr(expr->getOpcode()).size(),
+                            NewOp);
 
   return true;
 }
 
-std::vector<UnaryOperatorKind> MutateUnaryExprOpcode::computeValidAlternatives(
-    UnaryOperator *op) {
+std::vector<UnaryOperatorKind>
+MutateUnaryExprOpcode::computeValidAlternatives(UnaryOperator *op) {
   std::vector<UnaryOperatorKind> validAlternatives;
   Expr *subExpr = op->getSubExpr();
   SourceLocation loc = op->getExprLoc();

@@ -3,18 +3,34 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Type/StructToInt.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<StructToInt> M(
-    "struct-to-int", "Change a struct type to int type.");
+class StructToInt : public Mutator,
+                    public clang::RecursiveASTVisitor<StructToInt> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitElaboratedTypeLoc(clang::ElaboratedTypeLoc ETL);
+
+private:
+  std::vector<const clang::TagDecl *> StructDecls;
+  std::map<const clang::TagDecl *, std::vector<clang::TypeLoc>> StructsMap;
+};
+
+static RegisterMutator<StructToInt> M("struct-to-int",
+                                      "Change a struct type to int type.");
 
 bool StructToInt::VisitElaboratedTypeLoc(clang::ElaboratedTypeLoc ETL) {
   if (ETL.getNamedTypeLoc().getType()->isStructureType()) {
-    const RecordDecl *RD = ETL.getNamedTypeLoc().getType()->getAsStructureType()->getDecl()->getDefinition();
+    const RecordDecl *RD = ETL.getNamedTypeLoc()
+                               .getType()
+                               ->getAsStructureType()
+                               ->getDecl()
+                               ->getDefinition();
     StructDecls.push_back(RD->getCanonicalDecl());
     StructsMap[RD->getCanonicalDecl()].push_back(ETL);
   }
@@ -23,7 +39,8 @@ bool StructToInt::VisitElaboratedTypeLoc(clang::ElaboratedTypeLoc ETL) {
 
 bool StructToInt::mutate() {
   TraverseAST(getASTContext());
-  if (StructsMap.empty()) return false;
+  if (StructsMap.empty())
+    return false;
 
   auto *selectedStruct = randElement(StructDecls);
 

@@ -1,19 +1,34 @@
-#include "MutatorManager.h"
-#include "Stmt/DuplicateStatement.h"
 #include <algorithm>
 #include <clang/AST/ASTContext.h>
+#include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <random>
+#include <vector>
 
-using namespace ysmut;
+#include "Mutator.h"
+#include "MutatorManager.h"
 
-static RegisterMutator<DuplicateStatement> M(
-    "duplicate-stmt", "Duplicate a random non-declaration statement.");
+class DuplicateStatement
+    : public Mutator,
+      public clang::RecursiveASTVisitor<DuplicateStatement> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitCompoundStmt(clang::CompoundStmt *S);
+
+private:
+  std::vector<clang::Stmt *> Stmts;
+};
+
+static RegisterMutator<DuplicateStatement>
+    M("duplicate-stmt", "Duplicate a random non-declaration statement.");
 
 bool DuplicateStatement::VisitCompoundStmt(clang::CompoundStmt *CS) {
   for (clang::Stmt *S : CS->body()) {
     if (isMutationSite(S))
-      if (!clang::isa<clang::DeclStmt>(S)) { Stmts.push_back(S); }
+      if (!clang::isa<clang::DeclStmt>(S)) {
+        Stmts.push_back(S);
+      }
   }
   return true;
 }
@@ -21,7 +36,8 @@ bool DuplicateStatement::VisitCompoundStmt(clang::CompoundStmt *CS) {
 bool DuplicateStatement::mutate() {
   TraverseAST(getASTContext());
 
-  if (Stmts.empty()) return false;
+  if (Stmts.empty())
+    return false;
 
   auto stmt = randElement(Stmts);
 

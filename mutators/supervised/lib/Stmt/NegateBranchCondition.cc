@@ -2,24 +2,39 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Rewrite/Core/Rewriter.h>
+#include <string>
 
+#include "Mutator.h"
 #include "MutatorManager.h"
-#include "Stmt/NegateBranchCondition.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<NegateBranchCondition> M(
-    "negate-branch-cond", "Negate the condition of a branch statement.");
+class NegateBranchCondition
+    : public Mutator,
+      public clang::RecursiveASTVisitor<NegateBranchCondition> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitIfStmt(clang::IfStmt *IS);
+
+private:
+  std::vector<clang::IfStmt *> TheIfStmts;
+};
+
+static RegisterMutator<NegateBranchCondition>
+    M("negate-branch-cond", "Negate the condition of a branch statement.");
 
 bool NegateBranchCondition::VisitIfStmt(IfStmt *IS) {
-  if (isMutationSite(IS)) TheIfStmts.push_back(IS);
+  if (isMutationSite(IS))
+    TheIfStmts.push_back(IS);
   return true;
 }
 
 bool NegateBranchCondition::mutate() {
   TraverseAST(getASTContext());
-  if (TheIfStmts.empty()) return false;
+  if (TheIfStmts.empty())
+    return false;
 
   IfStmt *stmt = randElement(TheIfStmts);
 
@@ -28,7 +43,8 @@ bool NegateBranchCondition::mutate() {
   std::string NewCond =
       "!(" +
       Lexer::getSourceText(CharSourceRange::getTokenRange(CondRange),
-          getASTContext().getSourceManager(), getASTContext().getLangOpts())
+                           getASTContext().getSourceManager(),
+                           getASTContext().getLangOpts())
           .str() +
       ")";
 

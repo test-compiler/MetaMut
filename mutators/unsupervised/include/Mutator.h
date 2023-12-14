@@ -1,5 +1,5 @@
-#ifndef YSMUT_MUTATOR_H
-#define YSMUT_MUTATOR_H
+#ifndef MUTATORCOLLECTION_MUTATOR_H
+#define MUTATORCOLLECTION_MUTATOR_H
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/ASTContext.h>

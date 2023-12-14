@@ -3,15 +3,29 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/DuplicateWithBinaryOp.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<DuplicateWithBinaryOp> X(
-    "duplicate-with-binop", "Duplicate an expression with a binary operator.");
+class DuplicateWithBinaryOp
+    : public Mutator,
+      public clang::RecursiveASTVisitor<DuplicateWithBinaryOp> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitExpr(clang::Expr *E);
+
+private:
+  std::vector<clang::Expr *> TheExprs;
+};
+
+static RegisterMutator<DuplicateWithBinaryOp>
+    X("duplicate-with-binop",
+      "Duplicate an expression with a binary operator.");
 
 bool DuplicateWithBinaryOp::VisitExpr(Expr *E) {
   if (isMutationSite(E) &&
@@ -22,7 +36,8 @@ bool DuplicateWithBinaryOp::VisitExpr(Expr *E) {
 
 bool DuplicateWithBinaryOp::mutate() {
   TraverseAST(getASTContext());
-  if (TheExprs.empty()) return false;
+  if (TheExprs.empty())
+    return false;
 
   Expr *expr = randElement(TheExprs); // Choose an expression randomly
 
@@ -36,9 +51,9 @@ bool DuplicateWithBinaryOp::mutate() {
   for (const auto &op : ops) {
     Expr *lhs = expr->IgnoreImpCasts();
     Expr *rhs = expr->IgnoreImpCasts();
-    BinaryOperator *newExpr =
-        BinaryOperator::Create(getASTContext(), lhs, rhs, op, lhs->getType(),
-            VK_RValue, OK_Ordinary, expr->getExprLoc(), FPOptionsOverride());
+    BinaryOperator *newExpr = BinaryOperator::Create(
+        getASTContext(), lhs, rhs, op, lhs->getType(), VK_RValue, OK_Ordinary,
+        expr->getExprLoc(), FPOptionsOverride());
 
     // Check if the new expression is valid
     if (getCompilerInstance()

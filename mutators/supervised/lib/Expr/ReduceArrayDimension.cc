@@ -3,22 +3,39 @@
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
 
-#include "Expr/ReduceArrayDimension.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ReduceArrayDimension> M("reduce-array-dimension",
-    "Change a dimension n array variable to dimension n-1 array.");
+class ReduceArrayDimension
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ReduceArrayDimension> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitArraySubscriptExpr(clang::ArraySubscriptExpr *ASE);
+  bool VisitVarDecl(clang::VarDecl *VD);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::ArraySubscriptExpr *>>
+      VarToExprs;
+};
+
+static RegisterMutator<ReduceArrayDimension>
+    M("reduce-array-dimension",
+      "Change a dimension n array variable to dimension n-1 array.");
 
 bool ReduceArrayDimension::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
   if (isMutationSite(ASE)) {
     auto *DRE = llvm::dyn_cast<DeclRefExpr>(ASE->getBase()->IgnoreImpCasts());
-    if (!DRE) return true;
+    if (!DRE)
+      return true;
 
     auto *VD = llvm::dyn_cast<VarDecl>(DRE->getDecl());
-    if (!VD || !VD->getType()->isArrayType()) return true;
+    if (!VD || !VD->getType()->isArrayType())
+      return true;
 
     VarToExprs[VD].push_back(ASE);
   }
@@ -26,19 +43,23 @@ bool ReduceArrayDimension::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
 }
 
 bool ReduceArrayDimension::VisitVarDecl(VarDecl *VD) {
-  if (VD->getType()->isArrayType()) TheVars.push_back(VD);
+  if (VD->getType()->isArrayType())
+    TheVars.push_back(VD);
   return true;
 }
 
 bool ReduceArrayDimension::mutate() {
   TraverseAST(getASTContext());
-  if (VarToExprs.empty() || TheVars.empty()) return false;
+  if (VarToExprs.empty() || TheVars.empty())
+    return false;
 
   VarDecl *oldVar = randElement(TheVars);
-  if (!oldVar->getType()->isArrayType()) return false;
+  if (!oldVar->getType()->isArrayType())
+    return false;
 
   auto it = VarToExprs.find(oldVar);
-  if (it == VarToExprs.end()) return false;
+  if (it == VarToExprs.end())
+    return false;
 
   bool isMutationSuccessful = false;
   for (auto *ref : it->second) {

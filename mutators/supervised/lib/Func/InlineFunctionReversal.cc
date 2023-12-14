@@ -2,15 +2,27 @@
 #include <clang/AST/Decl.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Basic/SourceManager.h>
+#include <string>
 
-#include "Func/InlineFunctionReversal.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<InlineFunctionReversal> M(
-    "inverse-inline", "Toggle inline attributes of function declarations.");
+class InlineFunctionReversal
+    : public Mutator,
+      public clang::RecursiveASTVisitor<InlineFunctionReversal> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+
+private:
+  std::vector<clang::FunctionDecl *> TheFunctions;
+};
+
+static RegisterMutator<InlineFunctionReversal>
+    M("inverse-inline", "Toggle inline attributes of function declarations.");
 
 bool InlineFunctionReversal::VisitFunctionDecl(clang::FunctionDecl *FD) {
   if (isMutationSite(FD))
@@ -20,7 +32,8 @@ bool InlineFunctionReversal::VisitFunctionDecl(clang::FunctionDecl *FD) {
 
 bool InlineFunctionReversal::mutate() {
   TraverseAST(getASTContext());
-  if (TheFunctions.empty()) return false;
+  if (TheFunctions.empty())
+    return false;
 
   clang::FunctionDecl *func = randElement(TheFunctions);
   clang::Decl *TUD = getMostRecentTranslationUnitDecl(func);
@@ -48,14 +61,16 @@ bool InlineFunctionReversal::mutate() {
       getRewriter().ReplaceText(SourceRange(AttrStart, AttrEnd), "");
   } else {
     switch (randIndex(3)) {
-    case 0: getRewriter().InsertText(func->getBeginLoc(), "inline "); break;
+    case 0:
+      getRewriter().InsertText(func->getBeginLoc(), "inline ");
+      break;
     case 1:
-      getRewriter().InsertText(
-          func->getBeginLoc(), " __attribute__((always_inline)) ");
+      getRewriter().InsertText(func->getBeginLoc(),
+                               " __attribute__((always_inline)) ");
       break;
     case 2:
-      getRewriter().InsertText(
-          func->getBeginLoc(), " __attribute__((noinline)) ");
+      getRewriter().InsertText(func->getBeginLoc(),
+                               " __attribute__((noinline)) ");
       break;
     }
   }

@@ -3,15 +3,28 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
+#include <map>
 
-#include "Expr/DecaySmallStruct.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
-using namespace ysmut;
 using namespace clang;
 
-static RegisterMutator<DecaySmallStruct> M(
-    "decay-small-struct", "Decay small struct to long long.");
+class DecaySmallStruct : public Mutator,
+                         public clang::RecursiveASTVisitor<DecaySmallStruct> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitMemberExpr(clang::MemberExpr *ME);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::MemberExpr *>> VarUses;
+};
+
+static RegisterMutator<DecaySmallStruct> M("decay-small-struct",
+                                           "Decay small struct to long long.");
 
 bool DecaySmallStruct::VisitVarDecl(clang::VarDecl *VD) {
   if (isMutationSite(VD)) {
@@ -42,7 +55,8 @@ bool DecaySmallStruct::VisitMemberExpr(clang::MemberExpr *ME) {
 
 bool DecaySmallStruct::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   clang::VarDecl *var = randElement(TheVars);
   std::string newName = generateUniqueName(var->getNameAsString());

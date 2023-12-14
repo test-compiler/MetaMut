@@ -2,24 +2,39 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Expr/ChangeFloatLiteral.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ChangeFloatLiteral> M(
-    "change-floatliteral", "Change a FloatingLiteral's value.");
+class ChangeFloatLiteral
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ChangeFloatLiteral> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFloatingLiteral(clang::FloatingLiteral *FL);
+
+private:
+  std::vector<clang::FloatingLiteral *> TheLiterals;
+};
+
+static RegisterMutator<ChangeFloatLiteral>
+    M("change-floatliteral", "Change a FloatingLiteral's value.");
 
 bool ChangeFloatLiteral::VisitFloatingLiteral(FloatingLiteral *FL) {
-  if (isMutationSite(FL)) TheLiterals.push_back(FL);
+  if (isMutationSite(FL))
+    TheLiterals.push_back(FL);
   return true;
 }
 
 bool ChangeFloatLiteral::mutate() {
   TraverseAST(getASTContext());
-  if (TheLiterals.empty()) return false;
+  if (TheLiterals.empty())
+    return false;
 
   FloatingLiteral *literal = randElement(TheLiterals);
 
@@ -27,8 +42,8 @@ bool ChangeFloatLiteral::mutate() {
   float newFloat = getManager().randreal(INT_MIN, INT_MAX);
 
   // Replace the old literal with the new one
-  getRewriter().ReplaceText(
-      literal->getSourceRange(), std::to_string(newFloat));
+  getRewriter().ReplaceText(literal->getSourceRange(),
+                            std::to_string(newFloat));
 
   return true;
 }

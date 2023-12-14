@@ -1,36 +1,56 @@
-#include "MutatorManager.h"
-#include "Stmt/ChangeLoopType.h"
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Stmt.h>
 
-using namespace clang;
-using namespace ysmut;
+#include "Mutator.h"
+#include "MutatorManager.h"
 
-static RegisterMutator<ChangeLoopType> M(
-    "change-looptype", "Change a loop type ('for' to 'while' and vice versa).");
+using namespace clang;
+
+class ChangeLoopType : public Mutator,
+                       public clang::RecursiveASTVisitor<ChangeLoopType> {
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitForStmt(clang::ForStmt *FS);
+  bool VisitWhileStmt(clang::WhileStmt *WS);
+
+private:
+  std::vector<clang::ForStmt *> TheForLoops;
+  std::vector<clang::WhileStmt *> TheWhileLoops;
+};
+
+static RegisterMutator<ChangeLoopType>
+    M("change-looptype",
+      "Change a loop type ('for' to 'while' and vice versa).");
 
 bool ChangeLoopType::VisitForStmt(ForStmt *FS) {
-  if (isMutationSite(FS)) TheForLoops.push_back(FS);
+  if (isMutationSite(FS))
+    TheForLoops.push_back(FS);
   return true;
 }
 
 bool ChangeLoopType::VisitWhileStmt(WhileStmt *WS) {
-  if (isMutationSite(WS)) TheWhileLoops.push_back(WS);
+  if (isMutationSite(WS))
+    TheWhileLoops.push_back(WS);
   return true;
 }
 
 bool ChangeLoopType::mutate() {
   TraverseAST(getASTContext());
-  if (TheForLoops.empty() && TheWhileLoops.empty()) return false;
+  if (TheForLoops.empty() && TheWhileLoops.empty())
+    return false;
 
   if (!TheForLoops.empty()) {
     // Change a 'for' loop into a 'while' loop
     ForStmt *FS = randElement(TheForLoops);
     std::string whileLoop;
-    if (FS->getInit()) whileLoop += getSourceText(FS->getInit()).str() + ";\n";
+    if (FS->getInit())
+      whileLoop += getSourceText(FS->getInit()).str() + ";\n";
     whileLoop += "while(" + getSourceText(FS->getCond()).str() + ") {\n";
-    if (FS->getBody()) whileLoop += getSourceText(FS->getBody()).str();
-    if (FS->getInc()) whileLoop += getSourceText(FS->getInc()).str() + ";\n";
+    if (FS->getBody())
+      whileLoop += getSourceText(FS->getBody()).str();
+    if (FS->getInc())
+      whileLoop += getSourceText(FS->getInc()).str() + ";\n";
     whileLoop += "}\n";
     getRewriter().ReplaceText(FS->getSourceRange(), whileLoop);
   } else {

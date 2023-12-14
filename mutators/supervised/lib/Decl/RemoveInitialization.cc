@@ -2,24 +2,40 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <string>
 
-#include "Decl/RemoveInitialization.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<RemoveInitialization> M("remove-initialization",
-    "Randomly remove the initialization of a VarDecl.");
+class RemoveInitialization
+    : public Mutator,
+      public clang::RecursiveASTVisitor<RemoveInitialization> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+};
+
+static RegisterMutator<RemoveInitialization>
+    M("remove-initialization",
+      "Randomly remove the initialization of a VarDecl.");
 
 bool RemoveInitialization::VisitVarDecl(VarDecl *VD) {
-  if (isMutationSite(VD) && VD->hasInit()) TheVars.push_back(VD);
+  if (isMutationSite(VD) && VD->hasInit())
+    TheVars.push_back(VD);
   return true;
 }
 
 bool RemoveInitialization::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty()) return false;
+  if (TheVars.empty())
+    return false;
 
   VarDecl *selectedVD = randElement(TheVars);
 

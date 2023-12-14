@@ -2,15 +2,35 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <map>
+#include <string>
 
-#include "Expr/ReducePointerLevel.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ReducePointerLevel> M(
-    "reduce-pointer-level", "Reduce a variable's pointer level.");
+class ReducePointerLevel
+    : public Mutator,
+      public clang::RecursiveASTVisitor<ReducePointerLevel> {
+
+  using VisitorTy = clang::RecursiveASTVisitor<ReducePointerLevel>;
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitVarDecl(clang::VarDecl *VD);
+  bool VisitDeclRefExpr(clang::DeclRefExpr *DRE);
+  bool TraverseUnaryOperator(clang::UnaryOperator *UO);
+
+private:
+  std::vector<clang::VarDecl *> TheVars;
+  std::map<clang::VarDecl *, std::vector<clang::DeclRefExpr *>> VarToExprs;
+  std::map<clang::VarDecl *, std::vector<clang::UnaryOperator *>> VarToUos;
+};
+
+static RegisterMutator<ReducePointerLevel>
+    M("reduce-pointer-level", "Reduce a variable's pointer level.");
 
 bool ReducePointerLevel::VisitVarDecl(VarDecl *VD) {
   if (isMutationSite(VD) && VD->getType()->isPointerType())
@@ -21,7 +41,9 @@ bool ReducePointerLevel::VisitVarDecl(VarDecl *VD) {
 bool ReducePointerLevel::VisitDeclRefExpr(DeclRefExpr *DRE) {
   if (isMutationSite(DRE)) {
     VarDecl *var = dyn_cast_or_null<VarDecl>(DRE->getDecl());
-    if (var) { VarToExprs[var].push_back(DRE); }
+    if (var) {
+      VarToExprs[var].push_back(DRE);
+    }
   }
   return true;
 }
@@ -43,12 +65,14 @@ bool ReducePointerLevel::TraverseUnaryOperator(UnaryOperator *UO) {
 
 bool ReducePointerLevel::mutate() {
   TraverseAST(getASTContext());
-  if (TheVars.empty() || VarToExprs.empty()) return false;
+  if (TheVars.empty() || VarToExprs.empty())
+    return false;
 
   VarDecl *var = randElement(TheVars);
 
   // Ensure the selected variable has corresponding DeclRefExprs
-  if (VarToExprs.find(var) == VarToExprs.end()) return false;
+  if (VarToExprs.find(var) == VarToExprs.end())
+    return false;
 
   // Reduce the pointer level of the variable
   if (var->getType()->isPointerType()) {
@@ -62,7 +86,7 @@ bool ReducePointerLevel::mutate() {
     if (var->getInit()) {
       std::string initExprStr = getSourceText(var->getInit()).str();
       getRewriter().ReplaceText(var->getInit()->getSourceRange(),
-          "*" + initExprStr);
+                                "*" + initExprStr);
     }
   }
 

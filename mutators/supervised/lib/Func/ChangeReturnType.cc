@@ -2,18 +2,35 @@
 #include <clang/AST/Stmt.h>
 #include <clang/Basic/SourceManager.h>
 #include <clang/Sema/Sema.h>
+#include <llvm/ADT/DenseSet.h>
+#include <string>
 
-#include "Func/ChangeReturnType.h"
+#include "Mutator.h"
 #include "MutatorManager.h"
 
 using namespace clang;
-using namespace ysmut;
 
-static RegisterMutator<ChangeReturnType> M(
-    "change-returntype", "Change a FunctionDecl's return type to a compliant one.");
+class ChangeReturnType : public Mutator,
+                         public clang::RecursiveASTVisitor<ChangeReturnType> {
+
+public:
+  using Mutator::Mutator;
+  bool mutate() override;
+  bool VisitFunctionDecl(clang::FunctionDecl *FD);
+  bool VisitDecl(clang::Decl *D);
+
+private:
+  std::vector<clang::FunctionDecl *> TheFuncs;
+  llvm::DenseSet<clang::QualType, llvm::DenseMapInfo<clang::QualType>> TheTypes;
+};
+
+static RegisterMutator<ChangeReturnType>
+    M("change-returntype",
+      "Change a FunctionDecl's return type to a compliant one.");
 
 bool ChangeReturnType::VisitFunctionDecl(FunctionDecl *FD) {
-  if (isMutationSite(FD)) TheFuncs.push_back(FD);
+  if (isMutationSite(FD))
+    TheFuncs.push_back(FD);
   return true;
 }
 
@@ -25,7 +42,8 @@ bool ChangeReturnType::VisitDecl(Decl *D) {
 
 bool ChangeReturnType::mutate() {
   TraverseAST(getASTContext());
-  if (TheFuncs.empty()) return false;
+  if (TheFuncs.empty())
+    return false;
 
   FunctionDecl *oldFunc = randElement(TheFuncs);
   QualType oldType = oldFunc->getReturnType();
@@ -33,7 +51,8 @@ bool ChangeReturnType::mutate() {
   // Collect all compatible types
   std::vector<QualType> compatibleTypes;
   for (const auto &type : TheTypes) {
-    if (type == oldType) continue;
+    if (type == oldType)
+      continue;
     if (getCompilerInstance().getSema().CheckAssignmentConstraints(
             oldFunc->getLocation(), type, oldType) ==
         Sema::AssignConvertType::Compatible) {
@@ -41,13 +60,15 @@ bool ChangeReturnType::mutate() {
     }
   }
 
-  if (compatibleTypes.empty()) return false; // no suitable replacement found
+  if (compatibleTypes.empty())
+    return false; // no suitable replacement found
 
   // Randomly select a new type
   QualType newType = randElement(compatibleTypes);
 
   // Replace the old type with the new one
-  getRewriter().ReplaceText(oldFunc->getReturnTypeSourceRange(), newType.getAsString());
+  getRewriter().ReplaceText(oldFunc->getReturnTypeSourceRange(),
+                            newType.getAsString());
 
   return true;
 }
