@@ -103,9 +103,9 @@ class Fuzzer:
       curr_coverage = self.sampler.sample()
       if curr_coverage.outperforms(prev_coverage):
         self.fuzz_args.testcases.append(ofile)
+        self.save_coverage(curr_coverage)
       else:
         self.clean_file(ofile)
       # clean tmpdir
       Remove.remove_files(self.tmpdir)
-      self.save_coverage(curr_coverage)
     self.mark_current_state('done')

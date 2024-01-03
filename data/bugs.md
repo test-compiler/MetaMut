@@ -1,6 +1,8 @@
 # Reported Bugs
 
-** We use compiler explore link for quick verification, it's anonymous and won't expose authors **
+** We use compiler explorer link for quick verification, it's anonymous and won't expose authors **
+
+If certain bugs are not replicable on CompilerExplorer using either the trunk or older versions, this likely means they have been resolved in the latest GCC/Clang versions or corresponding patchs have been backported to older versions.
 
 ## clang
 * Crash, https://gcc.godbolt.org/z/W984TqE56

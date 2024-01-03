@@ -18,7 +18,7 @@ MetaMut is a generator to generate semantic aware mutators for testing C/C++ com
 
 Our project has already generated over 100 semantic aware mutators. Leveraging these mutators, we have successfully discovered over 100 bugs in two extensively tested modern C/C++ compilers, namely GCC and Clang.
 
-**GCC/Clang Bugs**: The full list of all GCC/Clang bugs we have uncovered can be found [here](data/bugs.md).
+**GCC/Clang Bugs**: We have reported 104 bugs to GCC/Clang. A comprehensive list of these reported bugs is available [here](data/bugs.md).
 
 **Coverage Comparation**: We conducted a comparative coverage experiment with existing tools. Detailed data from this study can be found [here](data/CoverageTrend).
 
