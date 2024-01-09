@@ -139,10 +139,12 @@ public:
   bool isMutationSite(const NodeType *node) {
     auto &SM = getASTContext().getSourceManager();
     auto B_is_macro = node->getBeginLoc().isMacroID();
-    auto E_is_macro = node->getBeginLoc().isMacroID();
-    return !B_is_macro && !E_is_macro && SM.isInMainFile(node->getBeginLoc()) &&
-           rangesIntersect(
-               SM, getMutationSourceRange(), node->getSourceRange());
+    auto E_is_macro = node->getEndLoc().isMacroID();
+    return !B_is_macro && !E_is_macro &&
+           SM.isInMainFile(node->getBeginLoc()) /* DEPRECATED: &&
+rangesIntersect(
+SM, getMutationSourceRange(), node->getSourceRange()) */
+        ;
   }
 
   llvm::raw_ostream &outs();

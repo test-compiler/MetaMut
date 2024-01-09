@@ -141,9 +141,10 @@ public:
     auto &SM = getASTContext().getSourceManager();
     // auto sourceRange = getMutationSourceRange();
     // if (!getMutationRange().isValid()) return true;
-    return SM.isInMainFile(node->getBeginLoc()) &&
+    return SM.isInMainFile(node->getBeginLoc()) /* DEPRECATED: &&
            rangesIntersect(
-               SM, getMutationSourceRange(), node->getSourceRange());
+               SM, getMutationSourceRange(), node->getSourceRange()) */
+        ;
   }
 
   llvm::raw_ostream &outs();
