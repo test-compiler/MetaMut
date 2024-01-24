@@ -1,5 +1,9 @@
 This project is a instrumenter modified from AFL++'s afl-cc.
 
+**Our modification**:
+1. We introduce a global counter dispatching server to make to basic block id free of collision, such collision is critical in large code base like gcc and clang. You may find detail about basic block collision [here](https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.lto.md), AFL++'s solution to this problem is rather slow in practical and seems contain bug in our evaluation.
+2. We uses a compact representation of coverage map, similar to AFL++'s `trace_mini`.
+
 **Requirements**:
 To compile and run `my-afl-cc`, we recommend using Ubuntu (version 22.04 or later) with the following requirements.
 - `libllvm15`
