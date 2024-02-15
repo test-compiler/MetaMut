@@ -4,6 +4,15 @@
 
 If certain bugs are not replicable on CompilerExplorer using either the trunk or older versions, this likely means they have been resolved in the latest GCC/Clang versions or corresponding patchs have been backported to older versions.
 
+** bug status **
+
+|          | Clang |  GCC   | Total |
+|----------|-------|--------|-------|
+|Reported  |63     |41      | 104   |
+|Confirmed |59 (+4)|31 (+7) | 101   |
+|Fixed     |4 (+6) |7 (+5)  | 22    |
+|Duplicate |3 (+2) |6 (+2)  | 13    |
+
 ## clang
 * Crash, https://gcc.godbolt.org/z/W984TqE56
 * Crash, https://gcc.godbolt.org/z/64faevx6v
@@ -28,7 +37,7 @@ If certain bugs are not replicable on CompilerExplorer using either the trunk or
 * Crash, https://gcc.godbolt.org/z/EW4eqjG93
 * Crash, https://gcc.godbolt.org/z/orEdfKfdf
 * Crash, https://gcc.godbolt.org/z/GKcndT8jv
-* Crash, Fixed, https://gcc.godbolt.org/z/K4cTe5fYW
+* Crash, https://gcc.godbolt.org/z/K4cTe5fYW
 * Crash, https://gcc.godbolt.org/z/3oW395qEv
 * Crash, https://gcc.godbolt.org/z/n65Yj1Mr3
 * Crash, https://gcc.godbolt.org/z/af393Enq4
@@ -39,14 +48,14 @@ If certain bugs are not replicable on CompilerExplorer using either the trunk or
 * Crash, https://godbolt.org/z/qEMMzz5Po
 * Crash, https://godbolt.org/z/MeWhabjPb
 * Crash, https://godbolt.org/z/f4qfb7dhP
-* Crash, Fixed, https://godbolt.org/z/xTjjvfq19
+* Crash, https://godbolt.org/z/xTjjvfq19
 * Crash, https://godbolt.org/z/3ovx6esc1
 * Crash, https://godbolt.org/z/KcfxheEW3
 * Crash, https://godbolt.org/z/vG9475WWz
 * Crash, https://gcc.godbolt.org/z/hhYnqzK1K
 * Crash, https://gcc.godbolt.org/z/4Pr6bva8o
 * Crash, https://gcc.godbolt.org/z/9TP8Gnhz7
-* Crash, Fixed, https://godbolt.org/z/37zEc9TW1
+* Crash, https://godbolt.org/z/37zEc9TW1
 * Crash, https://godbolt.org/z/Wqsnffr43
 * Crash, https://godbolt.org/z/oPnYbq5rx
 * Crash, https://godbolt.org/z/Eafb4qvG7
@@ -76,37 +85,37 @@ If certain bugs are not replicable on CompilerExplorer using either the trunk or
 * Crash, https://gcc.godbolt.org/z/YTvznYvMG
 * Crash, https://godbolt.org/z/Wa64sxosK
 * Crash, https://godbolt.org/z/1T6EoY9cs
-* Crash, Fixed, https://godbolt.org/z/ET4zf1W11
+* Crash, https://godbolt.org/z/ET4zf1W11
 * Crash, https://godbolt.org/z/cEorsPv8b
-* Hang, Fixed, https://godbolt.org/z/c97jjKn7x
+* Hang, https://godbolt.org/z/c97jjKn7x
 * Hang, https://godbolt.org/z/jdTaY3KxK
-* Hang, Fixed, https://gcc.godbolt.org/z/jde47oM33
+* Hang, https://gcc.godbolt.org/z/jde47oM33
 * Hang, https://gcc.godbolt.org/z/jWK3eK3Eq
-* Crash, Fixed, https://gcc.godbolt.org/z/4KxjvEa4W
+* Crash, https://gcc.godbolt.org/z/4KxjvEa4W
 * Crash, https://gcc.godbolt.org/z/K3qn5j4jh
 * Crash, https://godbolt.org/z/x3f99T95T
 * Crash, https://godbolt.org/z/aarPx8vob
 * Crash, https://godbolt.org/z/WaKr5EYs4
-* Crash, Fixed, https://gcc.godbolt.org/z/4KMrWKs1W
+* Crash, https://gcc.godbolt.org/z/4KMrWKs1W
 * Crash, https://gcc.godbolt.org/z/7qfeWEh8c
-* Crash, Fixed, https://gcc.godbolt.org/z/Tbfs5YrEf
-* Crash, Fixed, https://gcc.godbolt.org/z/vvKxq3b8j
-* Crash, Fixed, https://gcc.godbolt.org/z/zPe8nzGcd
+* Crash, https://gcc.godbolt.org/z/Tbfs5YrEf
+* Crash, https://gcc.godbolt.org/z/vvKxq3b8j
+* Crash, https://gcc.godbolt.org/z/zPe8nzGcd
 * Crash, https://gcc.godbolt.org/z/do14xrnjr
 * Crash, https://gcc.godbolt.org/z/sEjc9fqbd
 * Crash, https://gcc.godbolt.org/z/ce6sn1ac8
 * Crash, https://gcc.godbolt.org/z/s5813ss6c
 * Crash, https://gcc.godbolt.org/z/Kfdd4oGd3
 * Crash, https://gcc.godbolt.org/z/46fcvfGjf
-* Crash, Fixed, https://gcc.godbolt.org/z/6Een5Eqee
+* Crash, https://gcc.godbolt.org/z/6Een5Eqee
 * Crash, https://gcc.godbolt.org/z/jKbYv4rev
 * Crash, https://gcc.godbolt.org/z/WTv3sc831
 * Crash, https://gcc.godbolt.org/z/hjz9MnTh9
 * Crash, https://gcc.godbolt.org/z/qWfP4eqj8
 * Crash, https://gcc.godbolt.org/z/Y6q894Yr6
 * Crash, https://gcc.godbolt.org/z/dzMTYoaPY
-* Crash, Fixed, https://gcc.godbolt.org/z/ef9Ezbb9a
-* Crash, Fixed, https://gcc.godbolt.org/z/cn9oa5vcM
+* Crash, https://gcc.godbolt.org/z/ef9Ezbb9a
+* Crash, https://gcc.godbolt.org/z/cn9oa5vcM
 * Crash, https://gcc.godbolt.org/z/frzeMf717
 * Crash, https://gcc.godbolt.org/z/Y5hcj4an3
 * Crash, https://gcc.godbolt.org/z/WP94TWqj5
