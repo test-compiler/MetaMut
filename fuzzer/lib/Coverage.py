@@ -104,8 +104,8 @@ class Coverage:
   def to_shm(self, shm):
     shm.write(self.to_buffer(False))
   def is_superior(self, that):
-    t = self.bits | ~that.bits
-    return np.all(t & 0xFF)
+    # all bits set in that.bits is also set in self.bits
+    return np.all((self.bits | that.bits) == self.bits)
   def outperforms(self, that):
     t = self.bits & ~that.bits
     return np.any(t & 0xFF)
@@ -128,7 +128,7 @@ class Coverage:
     return np.nonzero(bits_array)[0]
 
 class CoverageSampler:
-  env_var = '__AFL_SHM_ID'
+  env_var = '__AFL_BB_SHM_ID'
   def __init__(self, total_branches):
     self.total_branches = total_branches
     self.shm = ShmObj(int(total_branches / 8 + 1))

@@ -28,5 +28,6 @@ class Scheduler:
       p = Process(target=self.worker, args=[job])
       p.start()
       self.ps.append([affinity, p, job])
-      psutil.Process(p.pid).cpu_affinity([affinity])
-    for p in self.ps: p.join()
+      psutil.Process(p.pid).cpu_affinity([
+        affinity, affinity + psutil.cpu_count() // 2])
+    for _, p, _ in self.ps: p.join()

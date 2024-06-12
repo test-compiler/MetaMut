@@ -1,36 +1,33 @@
 import os
+import pathlib
 
 ####### CONFIGS ######
-grayc_home  = f"..."
-mut_s_home  = f"..."
-mut_u_home  = f"..."
-csmith_home = f"..."
-afl_home    = f"..."
+homedir = pathlib.Path(__file__).parent.parent
 
-grayc_bin  = f"..."
-mut_s_bin  = f"..."
-mut_u_bin  = f"..."
-csmith_bin = f"..."
-afl_fuzz_bin = f"..."
+muss_homedir = f"{homedir}/mutators"
+muss_bin = f"{muss_homedir}/output/muss"
 
-csmith_incdirs = [
-  f"{csmith_home}/runtime",
-  f"{csmith_home}/output/runtime"
-]
+seeds_dir = f"{homedir}/seeds"
 
-myafl_gcc_objdir = f"..."
-myafl_gcc_bin = f"..."
-myafl_gcc_nbrs = 0 # my-afl-cc reported number of branches
+gcc_objdir = f"{homedir}/objects/gcc-project-trunk.obj"
+gcc_bin = f"{gcc_objdir}/install/bin/gcc"
 
-myafl_llvm_objdir = f"..."
-myafl_clang_bin = f"..."
-myafl_clang_nbrs = 0 # my-afl-cc reported number of branches
+llvm_objdir = f"{homedir}/objects/llvm-project-trunk.obj"
+clang_bin = f"{llvm_objdir}/bin/clang"
 
-aflpp_gcc_objdir = f"..."
-aflpp_gcc_bin = f"..."
-aflpp_gcc_envs = { "AFL_SKIP_CPUFREQ": "1" }
+instrum_gcc_objdir = f"{homedir}/objects/gcc-project-trunk.instrum"
+instrum_gcc_bin = f"{instrum_gcc_objdir}/install/bin/gcc"
+instrum_gcc_nbrs = 1478061
 
-aflpp_llvm_objdir = f"..."
-aflpp_clang_bin = f"..."
-aflpp_clang_envs = {
-    "AFL_SKIP_CPUFREQ": "1", "AFL_MAP_SIZE": "...", }
+instrum_llvm_objdir = f"{homedir}/objects/llvm-project-trunk.instrum"
+instrum_clang_bin = f"{instrum_llvm_objdir}/bin/clang"
+instrum_clang_nbrs = 4915140
+
+cc_map = {
+    gcc_bin: instrum_gcc_bin,
+    clang_bin: instrum_clang_bin,
+    instrum_gcc_bin: gcc_bin,
+    instrum_clang_bin: clang_bin,
+}
+
+max_frames = 50

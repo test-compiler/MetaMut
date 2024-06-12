@@ -6,13 +6,17 @@ CMakeFiles/
 CMakeScripts/
 CMakeTmp/
 cmake_install.cmake
-Makefile
-*.cmake
-!CMakeLists.txt
+# !Makefile
+# !*.cmake
+# !CMakeLists.txt
 
 # Build output
 build/
 output/
+seeds/
+compilers/
+objects/
+workspace/
 Debug/
 Release/
 .vs/
@@ -22,6 +26,8 @@ Release/
 *.dylib
 *.dll
 *.exe
+*.swp
+*.swo
 
 # Python Files
 __pycache__/

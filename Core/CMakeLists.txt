@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.16)
-project(LLMut CXX C)
+project(MUSS CXX C)
 include(cmake/string_to_list.cmake)
 include(cmake/find_llvm.cmake)
 
@@ -30,11 +30,11 @@ set(LINK_LIBS
   LLVM)
 
 file(GLOB_RECURSE SOURCES "lib/*.cpp")
-add_executable(LLMut ${SOURCES} main.cpp)
-target_include_directories(LLMut PRIVATE include)
-target_link_libraries(LLMut PRIVATE ${LINK_LIBS})
-target_include_directories(LLMut PRIVATE
+add_executable(muss ${SOURCES} main.cpp)
+target_include_directories(muss PRIVATE include)
+target_link_libraries(muss PRIVATE ${LINK_LIBS})
+target_include_directories(muss PRIVATE
   . ${LLVM_INCLUDE_DIRS})
-target_link_directories(LLMut PRIVATE
+target_link_directories(muss PRIVATE
   ${LLVM_LIBRARY_DIRS})
-target_compile_options(LLMut PRIVATE -ggdb3 -w -fmax-errors=3)
+target_compile_options(muss PRIVATE -ggdb3 -w -fmax-errors=3)
