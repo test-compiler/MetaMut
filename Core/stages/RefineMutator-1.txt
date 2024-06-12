@@ -1,4 +1,4 @@
-Based on the results of your {{mutator_name}} implementation, we have encountered an issue:
+Based on the results of your {{mutator.name}} implementation, we have encountered an issue:
 
 {% if chkres.res_str == "Hang" %}
 The mutator is causing the program to hang.
@@ -16,11 +16,21 @@ The implemented mutator is not compiling.
 The implemented mutator output nothing.
 {% endif %}
 
+{% if num_of_passed > 0 %}
+Note that, you have passed {{num_of_passed}} testcases.
+I paste them below, you may refer to them for better understand of your implementation:
+{% for e in passed_examples %}
+```
+{{e}}
+```
+{% endfor %}
+{% endif %}
+
 To aid in troubleshooting, please find the relevant information below:
 
 Your implementation is:
 ```
-{{mutator_impl}}
+{{mutator.code}}
 ```
 
 {% if chkres.errors is defined %}

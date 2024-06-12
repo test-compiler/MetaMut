@@ -17,7 +17,7 @@ from jinja2 import Environment, FileSystemLoader
 
 class MutatorGenerator:
   def __init__(self, api, logfile='log.txt',
-      existing_mutators=[], max_query_times=20, pass_ratio=0.5):
+      existing_mutators=[], max_query_times=20, pass_ratio=1):
     self.api = api
     self.logfile = logfile
     self.existing_mutators = existing_mutators
@@ -32,11 +32,24 @@ class MutatorGenerator:
         "Example": "example",
         "ImplementMutator": "code",
         "RefineMutator": "code", }
+  @staticmethod
+  def format_timedelta(td):
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    milliseconds = td.microseconds // 1000
+    return f"{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}"
   def jlog(self, **kwargs):
+    now = datetime.datetime.now()
+    if not hasattr(self, 'start_time'):
+      self.start_time = now
     with open(self.logfile, 'a+') as fp:
-      d = {"time":str(datetime.datetime.now()),
+      delta = now - self.start_time
+      d = {"time":self.format_timedelta(delta),
           "rounds":self.query_times, **kwargs}
       s = json.dumps(d)
+      print(f'>>>>>> {s}\n')
       fp.write(f'\n>>>>>> {s}\n')
   def tlog(self, text):
     with open(self.logfile, 'a+') as fp:
@@ -107,6 +120,14 @@ class MutatorGenerator:
       if num_of_passed >= max(1, int(len(examples) * self.pass_ratio)):
         return mutator
 
+      # hint for passed testcases
+      self.eval_ctx['num_of_passed'] = 0
+      self.eval_ctx['passed_examples'] = []
+      for example, chkres in check_results:
+        if chkres.isa(CheckRes.Normal):
+          self.eval_ctx['num_of_passed'] += 1
+          self.eval_ctx['passed_examples'].append(example)
+
       # fix
       for example, chkres in check_results:
         if not chkres.isa(CheckRes.Normal):
@@ -145,6 +166,8 @@ class MutatorGenerator:
       print(f'[MetaMut] Implementing {name}: {desc}')
       self.mutator = Mutator(name, desc, None)
       self.eval_ctx['mutator'] = self.mutator
+      self.eval_ctx['num_of_passed'] = 0
+      self.eval_ctx['passed_examples'] = []
       self.examples = self.query_examples()
       self.mutator = self.implement_mutator(self.mutator)
       self.mutator = self.refine_mutator(self.mutator, self.examples)

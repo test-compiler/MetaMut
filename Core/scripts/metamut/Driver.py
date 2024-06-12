@@ -1,9 +1,10 @@
 import os
 import random
+import configs
 import pathlib
 import datetime
 import traceback
-from llm.GPT import Context as GPTAPI
+from llm.APISwitch import make_context
 from llm.ReplayAPI import Context as ReplayAPI
 from .MutatorGenerator import MutatorGenerator
 from .MutatorExecutor import ExecUtils
@@ -28,7 +29,7 @@ class MetaMutDriver:
     self.existing_mutators = existing_mutators
     self.existing_mutators.extend(ExecUtils.list_mutators())
   def compile_project(self):
-    os.system(f'cd {self.objs_dir}; cmake ..; make -j8 >/dev/null 2>/dev/null')
+    os.system(f'cd {self.objs_dir}; cmake ..; make -j{configs.jobs}')
   def get_randomized_mutators(self):
     mutators = [*self.existing_mutators]
     random.shuffle(mutators)
@@ -63,7 +64,8 @@ class MetaMutDriver:
     if type(e) == ExceedMaxQueryTimes:
       self.existing_mutators.append([e.name, e.desc])
     # dump exception
-    s  = f"======= {datetime.datetime.now()} =======\n"
+    s = '\n'
+    s += f"======= {datetime.datetime.now()} =======\n"
     s += ''.join(traceback.format_exception(
         type(e), e, e.__traceback__))
     with open(logfile, 'a+', errors='ignore') as fp:
@@ -79,7 +81,7 @@ class MetaMutDriver:
       raise
     except Exception as e:
       self.record_exception(e, logfile)
-  def generate_mutators(self, n=100, api=GPTAPI()):
+  def generate_mutators(self, n=100, api=make_context()):
     for i in range(n):
       self.generate_single_mutator(api,
           self.next_logfile())
@@ -89,7 +91,7 @@ class MetaMutDriver:
       print(f'[MetaMut] Replaying {logfile}')
       self.generate_single_mutator(
           api, self.next_logfile())
-  def invent_mutators(self, n=100, api=GPTAPI()):
+  def invent_mutators(self, n=100, api=make_context()):
     invention_logfile = self.next_logfile('invent')
     for i in range(n):
       mg = MutatorGenerator(api, self.next_logfile(),
@@ -98,4 +100,5 @@ class MetaMutDriver:
       self.existing_mutators.extend(mutators)
       with open(invention_logfile, "a+") as fp:
         for name, desc in mutators:
+          print(f"# {name}: {desc.strip()}\n")
           fp.write(f"# {name}: {desc.strip()}\n")

@@ -23,7 +23,7 @@ Our project has already generated over 100 semantic aware mutators. Leveraging t
 **Coverage Comparation**: We conducted a comparative coverage experiment with existing tools. Detailed data from this study can be found [here](data/CoverageTrend).
 
 ## MetaMut Implementation
-We are pleased to announce the publication of our project, MetaMut. You can access it in [MetaMut](MetaMut).
+We are pleased to announce the publication of our project, MetaMut. You can access it in [Core](MetaMut).
 
 **Requirements**:
 To compile and run MetaMut, we recommend using Ubuntu (version 22.04 or later) with the following requirements.

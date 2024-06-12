@@ -1,4 +1,4 @@
-Assist me in identifying test cases that can effectively apply the mutator named {{mutator_name}}.
+Assist me in identifying test cases that can effectively apply the mutator named {{mutator.name}}.
 
 **Important Guidelines**
 - Each test case should be presented in a separate code block.

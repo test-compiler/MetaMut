@@ -83,7 +83,8 @@ class ExecUtils:
   def compile(cls, m):
     mut_cpp_file = f"lib/workbench/{m.name}.cpp"
     pathlib.Path(mut_cpp_file).write_text(m.code)
-    p = ShellProcess("cd output; cmake ..; make -j8",
+    p = ShellProcess(
+        f"cd output; cmake ..; make -j{configs.jobs}",
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE, tlimit=300)
     retcode, isTimeout, stdout, stderr = p.communicate()

@@ -1,5 +1,5 @@
-Assist me in implementing the mutator named {{mutator_name}}. Below is the description of its functionality:
-{{mutator_description}}
+Assist me in implementing the mutator named {{mutator.name}}. Below is the description of its functionality:
+{{mutator.desc}}
 
 You can utilize below's two example implementation as a reference:
 
