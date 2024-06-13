@@ -6,8 +6,6 @@ import configs
 import pathlib
 import threading
 import subprocess
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 class Compiler:
   def __init__(self, name, cc_path,
