@@ -156,11 +156,13 @@ python3 scripts/main.py --num-mutators=100
 
 And run fuzzer via:
 ```
+docker run -it metamut /bin/bash
+
 ulimit -s unlimited # Avoid fake crash caused by deep recursion
 ulimit -c 0         # Disable core dumps if your kernel is configured to allow them
 
-docker run -it metamut /bin/bash
-cd /root/MetaMut;
+cd /root/MetaMutAssets; git pull
+cd /root/MetaMut; git pull
 
 mkdir -p workspace; cd workspace
 python3 ../fuzzer/run.py -j 4 \
