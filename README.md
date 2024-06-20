@@ -20,158 +20,97 @@ Our project has already generated over 200 semantic aware mutators. Leveraging t
 
 **GCC/Clang Bugs**: We have reported over 130 bugs to GCC/Clang. A comprehensive list of these reported bugs is available [here](bugs.md).
 
-## Installation
+## Run This Project
 
-To execute MetaMut, we recommend using Ubuntu (version 22.04 or later).
-Install the required packages using the following commands:
-```
-sudo apt-get install llvm-12 llvm-12-dev llvm-12-tools libllvm12  libclang-12-dev
-sudo apt-get install cmake gdb gcc g++ python3 python3-pip
+### Installation
 
-sudo pip3 install tiktoken jinja2 openai
-```
-
-## Execute MetaMut
-
-To execute MetaMut, first enter your GPT-4 API key in the `configs.py` file located at [Core/scripts/configs.py].
-
-Afterwards, you can run MetaMut by following these steps:
-```
-cd Core;
-python3 scripts/main.py --num-mutators=100
-```
-
-In case that openai updated their API, you may use https interface like this:
-```
-cd Core;
-python3 scripts/main.py --num-mutators=100 --api https.openai
-```
-
-## Generated Mutators
-
-We have also published our generated mutators. You can access it in [mutators](mutators).
-
-To compile these mutators (this step will take 20 to 40 minutes):
-```
-cd mutators
-mkdir output && cd output
-cmake .. -DLLVM_CONFIG_BINARY=$(which llvm-config-12)
-make -j4
-```
-After compilation, you can find executable `muss`, `mu.s` and `mu.u` located in `mutators/output/`.
-
-To run these mutators (take `muss` as an example):
-```
-$ cat input.c
-#include <string.h>
-int main() {
-  return strlen("123");
-}
-$ ./muss --randomly-try-all-mutators -i input.c -o output.c -seed 10293
-$ cat output.c
-#include <string.h>
-int main() {
-    return ((strlen("123")) | (strlen("123")));
-}
-$ ./muss --randomly-try-all-mutators -i output.c -o output.c -seed 28596
-$ cat output.c
-#include <stdio.h>
-int main() {
-  return ((strlen("123")) ^ (strlen("123")));
-}
-```
-
-**Crashes and Mis-mutation**: these cases can occur, as most mutators do not involve human interaction, feel free to open a PR.
-
-## Fuzz Compilers
-
-Fuzzing scripts are located in the [fuzzer](fuzzer) directory. For effective fuzzing, instrumented versions of GCC and Clang are required.
-
-You can compile and instrument the compilers using our provided [setup.sh](setup.sh) script.
-
-**Compile and Instrument Compilers**
-```
-# install required packages
-sudo apt-get install -y flex bison yacc
-sudo apt-get install libllvm15 libclang-15-dev llvm-15-tools
-sudo apt-get install gcc-11 g++-11 gcc-11-plugin-dev
-sudo pip3 install sysv_ipc numpy psutil six
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-12) 999999
-
-# run setup.sh, this may take several hours to finish
-export CC_DWNDIR=$(pwd)/compilers
-export CC_OBJDIR=$(pwd)/objects
-export JOBS=4
-bash setup.sh
-```
-
-**Seed Programs**:
-We also collect a large set of seeds (continuously update), you can retrieve them via:
-```
-cd MetaMut/..
-git clone git@github.com:test-compiler/MetaMutAssets
-cd MetaMut
-ln -s ../MetaMutAssets/seeds .
-```
-
-After setting up compilers and seeds, run the fuzzer with the following commands:
-```
-ulimit -s unlimited # Avoid fake crash caused by deep recursion
-ulimit -c 0         # Disable core dumps if your kernel is configured to allow them
-
-mkdir -p workspace; cd workspace
-python3 ../fuzzer/run.py -j 4 \
-  --wdir $(pwd) \
-  --repeat-times 10 \
-  --duration 86400 \
-  --seeds-dir $(pwd)/../seeds \
-  --cc-opt=-O2
-
-# show results
-python3 ../fuzzer/show.py * --summary
-```
-
-Options explanation:
-- `-j 4`: Utilize up to 4 CPU cores.
-- `--repeat-times 10`: Number of fuzzing instances to run for each compiler.
-- `--duration 86400`: Each fuzzing instance will use up to 86400 seconds
-- `--seeds-dir`: Directory containing seed programs.
-- `--cc-opt`: Compiler options to apply during fuzzing, eg. `--cc-opt=-O2 --cc-opt=-O3` will fuzz `-O2` and `-O3`
-
-## Docker
-
-In case that our tools are not compatible with your environment, we also prepare a docker image.
-You can download it from hub.docker.com via:
+To get started, you can pull our Docker image from Docker Hub:
 ```
 docker pull metamut/metamut:latest
+docker run -it metamut /bin/bash
 ```
 
-Then, you can run MetaMut via:
+*note*: If you prefer to compile and execute directly on your native machine, follow instructions [here](README.ubuntu.md).
+
+### Execute MetaMut
+
+To run MetaMut within the Docker container, use the following commands:
 ```
-docker run -it metamut /bin/bash
 cd /root/MetaMut/Core;
 # fill in openai key in Core/scripts/configs.py
 python3 scripts/main.py --num-mutators=100
 ```
 
-And run fuzzer via:
+The mutators will be generated in the `Core/lib/mutators` subdirectory.
+
+### Generated Mutators
+
+You can find the generated mutators as binaries in the Docker image:
+
+* Supervised Version: `/usr/bin/mu.s`
+* Unsupervised Version: `/usr/bin/mu.u`
+* Fused Version: `/usr/bin/muss`
+
+List all supported mutators:
 ```
-docker run -it metamut /bin/bash
+$ muss --list-mutators
+[
+  "AddBitwiseOperator",
+  "AddIntegerArray",
+  "AddNestedLoop",
+  "AddRandomAssignment",
+  "AddRandomConditionalExpr",
+  ...
+]
+```
 
-ulimit -s unlimited # Avoid fake crash caused by deep recursion
-ulimit -c 0         # Disable core dumps if your kernel is configured to allow them
+Execute a specific mutator:
+```
+$ cat /root/MetaMut/seeds/28507.c
+extern void foo (int);
 
-cd /root/MetaMutAssets; git pull
-cd /root/MetaMut; git pull
+void bar (unsigned long l)
+{
+    foo(l == 0);
+}
 
-mkdir -p workspace; cd workspace
+$ muss -i /root/MetaMut/seeds/28507.c -mutator s.duplicate-stmt -o -
+extern void foo (int);
+
+void bar (unsigned long l)
+{
+    foo(l == 0);foo(l == 0);
+}
+```
+
+Alternatively, run all mutators until a successful mutation occurs:
+```
+$ muss --randomly-try-all-mutators -i /root/MetaMut/seeds/28507.c -o - -seed 123
+extern void foo (int);
+
+void bar (unsigned long l)
+{
+    foo(l == 0 & 0);
+}
+```
+
+### Fuzz Compilers
+
+To run the fuzzer:
+```
+cd /root/MetaMut; mkdir -p workspace; cd workspace
 python3 ../fuzzer/run.py -j 4 \
-  --wdir $(pwd) \
   --repeat-times 10 \
   --duration 86400 \
   --seeds-dir $(pwd)/../seeds \
-  --cc-opt=-O2
+  --cc-opt=-O2 \
+  --wdir $(pwd)
+```
 
-# show results
+*note*: You may use Docker's -v option to map a local directory to a directory inside the Docker container (`-v local_dir:docker_dir`), allowing the fuzzer's output to be stored on your local machine.
+
+Review the fuzzer's results with:
+```
+cd /root/MetaMut
 python3 ../fuzzer/show.py * --summary
 ```
