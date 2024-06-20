@@ -3,3 +3,4 @@ output/
 *.out
 *.log
 *.output
+!logs/
