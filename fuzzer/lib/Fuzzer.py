@@ -207,7 +207,9 @@ class Fuzzer:
       # check coverage
       prev_coverage = self.sampler.sample()
       with self.sampler:
-        self.compile(self.fuzz_args.cc.instrum_path, ot)
+        for opt_str in configs.options:
+          self.compile(self.fuzz_args.cc.instrum_path,
+              ot, options=shlex.split(opt_str))
       curr_coverage = self.sampler.sample()
       if curr_coverage.outperforms(prev_coverage):
         # wlog(f"new branch: {ot}")
